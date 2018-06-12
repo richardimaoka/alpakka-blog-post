@@ -1,4 +1,6 @@
-## Brief 2-3 line introduction about why Cassandra and Alpakka could be interesting to users. Maybe mention a typical use case of that. (e.g.) You had to use Cassandra for scaling, and use 
+## Opening
+
+Brief 2-3 line introduction about why Cassandra and Alpakka could be interesting to readers. Maybe mention a typical use case of that. (e.g.) You had to use Cassandra for scaling, and you need back-pressure not to destroy the system on peak load
 
 ## What Cassandra is, and why it matters the in stream processing context
 
