@@ -55,7 +55,7 @@ public class CassandraSinkExample {
         .to(Sink.ignore())
         .run(materializer);
 
-    for(i=1; i<=1000; i++){
+    for(int i=1; i<=1000; i++){
       actorRef.tell(new UserComment(1, ""), ActorRef.noSender());
     }
 
