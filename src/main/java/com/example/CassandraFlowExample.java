@@ -10,11 +10,11 @@ import akka.stream.alpakka.cassandra.javadsl.CassandraFlow;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.Session;
+import com.datastax.driver.core.*;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.function.BiFunction;
 
 public class CassandraFlowExample {
@@ -29,6 +29,9 @@ public class CassandraFlowExample {
   }
 
   public static void main(String args[]) {
+    // Make sure you already brought up Cassandra, which is accessible via the host and port below.
+    // The host and port would be driven from a config in a production environment
+    // but hardcoding them here for simplicity.
     final Session session = Cluster.builder()
       .addContactPoint("127.0.0.1").withPort(9042)
       .build().connect();
@@ -36,31 +39,79 @@ public class CassandraFlowExample {
     final ActorSystem system = ActorSystem.create();
     final Materializer materializer = ActorMaterializer.create(system);
 
-    final PreparedStatement insertTemplate = session.prepare(
-      "INSERT INTO akka_stream_java_test.user_comments (user_id, comment) VALUES (? ?)"
-    );
+    try {
+      setupCassandra(session);
 
-    // A function to create a BoundStatement, from:
-    //  - UserComment, input data
-    //  - PreparedStatement, template to generate BoundStatement by supplying UserComment
-    BiFunction<UserComment, PreparedStatement, BoundStatement> statementBinder =
-      (userData, preparedStatement) -> preparedStatement.bind(userData.userId, userData.comment);
+      final PreparedStatement insertTemplate = session.prepare(
+        "INSERT INTO akka_stream_java_test.user_comments (id, user_id, comment) VALUES (uuid(), ?, ?)"
+      );
 
-    final Flow<UserComment, UserComment, NotUsed> flow =
-      CassandraFlow.createWithPassThrough(2, insertTemplate, statementBinder, session, system.dispatcher());
+      // A function to create a BoundStatement, from:
+      //  - UserComment, input data
+      //  - PreparedStatement, template to generate BoundStatement by supplying UserComment
+      BiFunction<UserComment, PreparedStatement, BoundStatement> statementBinder =
+        (userData, preparedStatement) -> preparedStatement.bind(userData.userId, userData.comment);
 
-    final Source<UserComment, ActorRef> source = Source.actorRef(4, OverflowStrategy.backpressure());
+      final Flow<UserComment, UserComment, NotUsed> flow =
+        CassandraFlow.createWithPassThrough(2, insertTemplate, statementBinder, session, system.dispatcher());
 
-    final ActorRef actorRef = source
-        .via(flow)
-        .to(Sink.ignore())
+      // OverflowStrategy.fail() might not be appropriate in production, as it makes the entire stream fail on overflow.
+      // However, for this example, it highlights an issue quickly when there is something going wrong
+      final Source<UserComment, ActorRef> source = Source.actorRef(4, OverflowStrategy.fail());
+
+      // The leftmost materialized value (i.e.) ActorRef from source is returned,
+      // due to to() and run() as described below
+      final ActorRef actorRef =
+        source
+        .log("hello")
+        .via(flow)          //via() takes the left Materialized value
+        .to(Sink.ignore())  //to()  takes the left Materialized value
+        .run(materializer); //run() takes the left Materialized value
+
+      // In production systems, you can pass around the above `actorRef` to connect the CassandraSink stream to
+      // whatever input you like, (e.g.) an HTTP endpoint which forwards UserComment per HTTP request.
+      // In this example, the actorRef is connected to a static source locally here, which looks stupid, but easy to understand.
+      Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+        // throttling the stream so that the Source.actorRef() does not overflow
+        .throttle(1, Duration.of(50, ChronoUnit.MILLIS))
+        .map(i -> new CassandraSinkExample.UserComment(1, "some comment"))
+        .to(Sink.actorRef(actorRef, "stream completed"))
         .run(materializer);
 
-    for(int i=1; i<=1000; i++){
-      actorRef.tell(new UserComment(1, ""), ActorRef.noSender());
-    }
+      // Sleep for 5 seconds, so that the stream finishes running
+      Thread.sleep(5000);
+      System.out.println("finished");
 
-    // Sleep for 10 seconds, so that the stream finishes running
-    Thread.sleep(10000);
+    } catch(InterruptedException e) {
+      System.out.println("Application exited unexpectedly while sleeping.");
+      System.out.println(e);
+    }
+  }
+
+  private static void setupCassandra(Session session){
+    // Setup step 1: Firstly make sure the keyspace exists
+    // Cassandra keyspace is something that holds tables inside, and defines replication strategies
+    final Statement createKeyspace = new SimpleStatement(
+      "CREATE KEYSPACE IF NOT EXISTS akka_stream_java_test WITH REPLICATION = { 'class' :  'SimpleStrategy', 'replication_factor': 1 };"
+    );
+    session.execute(createKeyspace);
+
+    // Step 2: Make sure the target table exists, and empty
+    // Dropping and creating the table is the easiest way to make sure the table is empty
+    final Statement dropTable = new SimpleStatement(
+      "DROP TABLE IF EXISTS akka_stream_java_test.user_comments;"
+    );
+    final Statement createTable = new SimpleStatement(
+      "CREATE TABLE akka_stream_java_test.user_comments (" +
+        "id uuid, " +         // same as users table in CassandraSourceExample, use int as simplicity
+        // this user_id should match with users.id but there is no concept of foreign key in Cassandra
+        // unlike SQL, so no constraint is put in place
+        "user_id int, " +
+        "comment text, " +
+        "PRIMARY KEY (id)" +
+        ");"
+    );
+    session.execute(dropTable);
+    session.execute(createTable);
   }
 }
