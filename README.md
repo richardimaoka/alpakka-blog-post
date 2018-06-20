@@ -1,18 +1,61 @@
-## Opening
+## Background
 
-Brief 2-3 line introduction about why Cassandra and Alpakka could be interesting to readers. Maybe mention a typical use case of that. (e.g.) You had to use Cassandra for scaling, and you need back-pressure not to destroy the system on peak load
+Enterprise Integration Patterns, EIP, have been a great success in the enterprise world,
+and there have been many systems written in Java following or extending from patterns described in EIP.
 
-## What Cassandra is, and why it matters the in stream processing context
+However, in recent years there has been a trend to rewrite systems in more stream-based fashion,
+given a massive scale of data such enterprise systems need to process every day,
+and an increasing business demand for real-time analysis.
 
-- Assume readers would are somewhat familiar with Cassandra, so don’t go into too much detail about Cassandra itself
-- Maybe the reader already has akka-based backend systems, which you want to connect Cassandra to, in a streaming fasion
+Alpakka, which is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka,
+is a great fit in this area. It allows you easily connect your systems with other external systems and services, and perform stream-based operations.
 
-## What Alpakka is
+In this article, we introduce Alpakka's Cassandra connector as an example, and see what Alpakka gives you over Cassandra's plain Java driver.
 
-- Community-based effort
-- Implements EIP patterns with streams
+## About Alpakka
+
+Alpakka is a community based effort collaborating with Akka maintainers at Lightbend,
+and provides a large, and ever increasing number of connectors for files, queues including AMQP and Kafka, AWS/GCP/Azure services, and more.
+
+**************************************
+**************************************
+QUESTION: Do we want to show the contrast in the number of Alpakka plugins in 2016 abd 2018?
+**************************************
+**************************************
+
+https://github.com/akka/alpakka
+https://akka.io/blog/news/2018/05/02/alpakka-team
+
+Since Alpakka provides the connectors as Akka Stream operators, it's not just easy to connect to these other systems and services,
+but you can also benefit from Akka Stream's back-pressure support and fine-grained control over the stream at any level you want.
+Akka Stream's flexible DSL makes it easy to combine different operators to perform buffering, throttling, branching, pub/sub, and you can even create your own operators.
+
+## About Cassandra
+
+Cassandra is a database product originally created by Facebook, and known for its great write performance and distributed nature by design.
+
+https://academy.datastax.com/planet-cassandra/what-is-apache-cassandra
+http://cassandra.apache.org/
+
+Although Cassandra is different from relational databases in many aspects, its query language CQL has some similarities to SQL,
+and Cassandra indeed has a concept of tables.
+
+If you already have existing data stored in Cassandra and want to introduce stream-based operations in your system,
+or you have Akka-based or Akka Stream-based systems and looking for a database with great scalability and fault tolerance,
+this blog post can be useful for you.
 
 ## Example
+
+****************************************************************************
+****************************************************************************
+TODO
+
+As said earlier, do buffering, throttling, etc to show benefits of
+Akka streams. The current examples are just as boring as plain Cassandra
+Java drives.
+****************************************************************************
+****************************************************************************
+
 
 ### Bring up Cassandra
 
@@ -74,16 +117,38 @@ to upload data, you can use cqlsh copy.
   - Chris Batey's picture
   - http://2.bp.blogspot.com/-7HGmZMvPUMo/VNi-PTMHztI/AAAAAAAAAXQ/9IXNl2Pz-pM/s1600/Screenshot%2B2015-02-09%2B14.03.16.png
 
+https://www.slideshare.net/doanduyhai/cassandra-drivers-and-tools
+https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/
+
+****************************************************************************
+****************************************************************************
+TODO
+
+For CassandraSource, maybe a realistic example is a batch operation.
+Introduce throttling, etc for more production-look examples
+****************************************************************************
+****************************************************************************
+
+### CassandraSink example
+
+- Same 4 points as CassandraSource
+- mapAsync to improve performance, as Cassandra is a distributed store
+
+****************************************************************************
+****************************************************************************
+TODO
+
+For CassandraSink, real-time stream processing can be a good example.
+Use parallelism, etc to form a more realistic example
+****************************************************************************
+****************************************************************************
+
 ### CasandraFlow example
 
 - Same 4 points as CassandraSource
 - We should not use UNLOGGED batch? It doesn't improve performance unless you are SURE your batch has the same partition key
   - http://batey.info/cassandra-anti-pattern-misuse-of.html
 
-### CassandraSink example
-
-- Same 4 points as CassandraSource
-- mapAsync to improve performance, as Cassandra is a distributed store
 
 
 ## Integration with akka-persistence-cassandra??
