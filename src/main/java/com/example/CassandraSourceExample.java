@@ -1,12 +1,18 @@
 package com.example;
 
+
+// Alpakka Cassandra connector
+import akka.stream.alpakka.cassandra.javadsl.CassandraSource;
+
+// For Akka an Akka Stream
 import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
-import akka.stream.alpakka.cassandra.javadsl.CassandraSource;
 import akka.stream.javadsl.RunnableGraph;
 import akka.stream.javadsl.Sink;
+
+// For Java Cassandra driver
 import com.datastax.driver.core.*;
 
 public class CassandraSourceExample {
@@ -25,7 +31,7 @@ public class CassandraSourceExample {
     try {
       setupCassandra(session);
 
-      //https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/
+      // https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/
       final Statement stmt =
         new SimpleStatement("SELECT * FROM akka_stream_java_test.users").setFetchSize(100);
 
@@ -33,11 +39,18 @@ public class CassandraSourceExample {
       // and print them one by one
       final RunnableGraph<NotUsed> runnableGraph =
         CassandraSource.create(stmt, session)
+          .log("logging") //prints out row (e.g.) Row[498, 35, John]
           .to(Sink.foreach(row -> System.out.println(row)));
 
       runnableGraph.run(materializer);
 
-    } finally {
+      // Let the stream run for a while, before terminating ActorSystem
+      Thread.sleep(5000);
+
+    } catch (InterruptedException e) {
+      System.out.println(e);
+    }
+    finally {
       session.close();
       system.terminate();
     }

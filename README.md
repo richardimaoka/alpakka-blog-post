@@ -1,7 +1,8 @@
 ## Background
 
-Enterprise Integration Patterns, EIP, have been a great success in the enterprise world,
-and there have been many systems written in Java following or extending from patterns described in EIP.
+Enterprise Integration Patterns, EIP, which provide reusable architecture patterns to construct complicated systems
+from simple components, have been a great success in the enterprise world.
+There have been many systems written in Java following or extending from patterns described in EIP.
 
 However, in recent years there has been a trend to rewrite systems in more stream-based fashion,
 given a massive scale of data such enterprise systems need to process every day,
@@ -44,7 +45,7 @@ If you already have existing data stored in Cassandra and want to introduce stre
 or you have Akka-based or Akka Stream-based systems and looking for a database with great scalability and fault tolerance,
 this blog post can be useful for you.
 
-## Example
+## Examples
 
 ****************************************************************************
 ****************************************************************************
@@ -56,78 +57,196 @@ Java drives.
 ****************************************************************************
 ****************************************************************************
 
+The full code example is [here](where?).
 
 ### Bring up Cassandra
 
-In case you already have a Cassandra cluster up and running, you can skip this section.
-Otherwise, to see how the example works, you can set up a single-node Cassandra cluster on your local machine as follows.
+To follow the examples in this article, you should firstly bring up Cassandra.
+If you already have Cassandra up and running, you can skip this section.
 
-If you are familiar with Docker, the easiest way is to use docker:
+The easiest way to bring up Cassandra, if you already have Docker installed, is run it via Docker.
+Make sure you expose the port 9042 so that the example code can connect to Cassandra via the port.
 
 ```
 docker pull cassandra
 docker run -p 127.0.0.1:9042:9042 -d cassandra
 ```
 
-Otherwise, go to http://cassandra.apache.org/download/, download Cassandra and set the PATH to it.
+If you are not familiar with Docker, [download Cassandra](http://cassandra.apache.org/download/),
+unarchive it, set PATH to the Cassandra bin directory..
 
-Next, you should set up a keyspace and a table.
-Run CassandraSetup in this repository to insert 1000 rows into the `akka_stream_java_test.users` table.
+### Dependency
 
-Othrwise, follow the below steps in cqlsh shell.
-
-```
-cqlsh> CREATE KEYSPACE IF NOT EXISTS akka_stream_java_test WITH REPLICATION = { 'class' :  'SimpleStrategy', 'replication_factor': 1 };
-```
+To run the examples, you must add the following dependency to your project.
 
 ```
-cqlsh> CREATE TABLE akka_stream_java_test.users (
-   ...  id UUID,
-   ...  name text,
-   ...  age int,
-   ...  PRIMARY KEY (id)
-   ... );
+libraryDependencies += "com.lightbend.akka" %% "akka-stream-alpakka-cassandra" % "0.19"
 ```
-
-// Link to explanation about replication strategies
-// you should not use simplestrategy in production
-
-- https://docs.datastax.com/en/cql/3.3/cql/cql_reference/cqlCreateKeyspace.html
-- datastax video courses
-
-to upload data, you can use cqlsh copy.
-
-### Further resources about bulk uploading
-
- Probably don't need to mention in the article though
-
-  ResultSet in Cassandra Driver pages, no need to worry about OOM
-  http://batey.info/streaming-large-payloads-over-http-from.html
-
-  Distributed Data Show Episode 49: Bulk Loading with Brian Hess
-  https://www.youtube.com/watch?v=CAH7Mlg_rVI
 
 ### CassandraSource example
 
+Alpakka Cassandra has three different connectors, CassandraSource, CassandraSink and CasssandraFlow.
+
+The first example we talk about is CassandraSource, which could be useful when you perform a batch-like operation
+against a very large data set.
+
 - Animation
-- Code snippet
-- Typical cases where this is useful
-  - filtering
+
+As you see in the animation, CassandraSource lets you run a CQL query, which fetches data set (ResultSet) from Cassandra,
+and passes each Row from the ResultSet as an element going through Akka Stream.
+It is not something that keeps polling given some filtering criteria, and that's why it is suitable for batch-like operations.
+
+To go through the example code, you firstly need to add following import statements,
+
+```java
+// Alpakka Cassandra connector
+import akka.stream.alpakka.cassandra.javadsl.CassandraSource;
+
+// For Akka an Akka Stream
+import akka.NotUsed;
+import akka.actor.ActorSystem;
+import akka.stream.ActorMaterializer;
+import akka.stream.Materializer;
+import akka.stream.javadsl.RunnableGraph;
+import akka.stream.javadsl.Sink;
+
+// For Java Cassandra driver
+import com.datastax.driver.core.*;
+```
+
+and you need to initialize the following stuff before running CassandraSource to connect to Cassandra.
+
+```java
+// Make sure you already brought up Cassandra, which is accessible via the host and port below.
+// The host and port would be driven from a config in a production environment
+// but hardcoding them here for simplicity.
+final Session session = Cluster.builder()
+  .addContactPoint("127.0.0.1").withPort(9042)
+  .build().connect();
+
+// ActorSystem and Materializer are necessary as underlying infrastructure to run Akka Stream
+final ActorSystem system = ActorSystem.create();
+final Materializer materializer = ActorMaterializer.create(system);
+```
+
+If you are not familiar with ActorSystem and Materializer, you can assume,
+they are like underlying infrastructure to run Akka Stream.
+Typically each of them has only one instance in your application, more precisely,
+in your (Linux) process.
+
+In a production environment, you should already have a data set in Cassandra, but in this example,
+we need to prepare a data set by ourselves before running Akka Stream with CassandraSource.
+So let's create a keyspace and a table in Cassandra as follows:
+
+```
+CREATE KEYSPACE IF NOT EXISTS akka_stream_java_test \
+  WITH REPLICATION = { 'class' :  'SimpleStrategy', 'replication_factor': 1 };
+
+CREATE TABLE akka_stream_java_test.users (
+  id int,
+  name text,
+  age int,
+  PRIMARY KEY (id)
+);
+```
+
+In the example code, we use Java driver to execute them so that you don't need to install
+CQL client yourself to connect to Cassandra.
+
+Keyspace is what contains Cassandra tables, and you need to declare a replication
+strategy when you create a keyspace.
+After creating the keyspace, you can create a table under it,
+
+```java
+for(int i = 1; i <= 1000; i++){
+  // For simplicity we use the same name and age in this example
+  String name = "John";
+  int age = 35;
+
+  // Prepared statement is typical in parameterized queries in CQL (Cassandra Query Language).
+  // In production systems, it can be used to guard the statement from injection attacks, similar to SQL prepared statement.
+  BoundStatement bound = prepared.bind(i, name, age);
+  session.execute(bound);
+}
+```
+
+If you execute the following query,
+
+```
+select * FROM akka_stream_java_test.users ;
+```
+
+you will get the result set like below,
+
+```
+ id  | age | name
+-----+-----+------
+ 769 |  35 | John
+  23 |  35 | John
+ 114 |  35 | John
+ 660 |  35 | John
+ 893 |  35 | John
+  53 |  35 | John
+ 987 |  35 | John
+ 878 |  35 | John
+ 110 |  35 | John
+ ...
+ ...
+```
+
+but we will execute this query using CassandraSource.
+
+To supply the query to CassandraSource, you should create a Statement beforehand,
+using setFetchSize to set the paging size.
+
+```java
+//https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/
+final Statement stmt =
+  new SimpleStatement("SELECT * FROM akka_stream_java_test.users").setFetchSize(100);
+```
+
+Cassandra Java driver already has a [paging feature](https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/),
+so that you don't need to be afraid of your Cassandra client going out of memory by fetching a huge data set in one go.
+Cassandra's paging works nicely with Akka Stream, and on top of it, Akka Stream allows fully non-blocking execution
+which Cassandra Java driver does not provide on its own.
+
+For a simple example, you can run Akka Stream like below:
+
+```java
+final RunnableGraph<NotUsed> runnableGraph =
+  CassandraSource.create(stmt, session)
+    .log("logging") //prints out row (e.g.) Row[498, 35, John]
+    .to(Sink.foreach(row -> System.out.println(row)));
+
+runnableGraph.run(materializer);
+```
+
+and get the following output.
+
+```
+...
+Row[829, 35, John]
+Row[700, 35, John]
+Row[931, 35, John]
+Row[884, 35, John]
+Row[760, 35, John]
+Row[628, 35, John]
+Row[498, 35, John]
+Row[536, 35, John]
+...
+```
+
 - Describe how it improves, compared to simply using cassandra query
   - Chris Batey's picture
   - http://2.bp.blogspot.com/-7HGmZMvPUMo/VNi-PTMHztI/AAAAAAAAAXQ/9IXNl2Pz-pM/s1600/Screenshot%2B2015-02-09%2B14.03.16.png
+- Typical cases where this is useful
+  - filtering, when you cannot express filtering criteria as CQL (e.g.) it changes by user
+  - aggregation
+  - throttling, if Source cannot do appropriate back pressuring
 
 https://www.slideshare.net/doanduyhai/cassandra-drivers-and-tools
 https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/
 
-****************************************************************************
-****************************************************************************
-TODO
-
-For CassandraSource, maybe a realistic example is a batch operation.
-Introduce throttling, etc for more production-look examples
-****************************************************************************
-****************************************************************************
 
 ### CassandraSink example
 
