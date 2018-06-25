@@ -1,7 +1,7 @@
 ## Background
 
-Enterprise Integration Patterns, EIP, which provide reusable architecture patterns to construct complicated systems
-from simple components, have been a great success in the enterprise world.
+Enterprise Integration Patterns, EIP, have been a great success in the enterprise world,
+which provide reusable architecture patterns to construct complicated systems from simple components.
 There have been many systems written in Java following or extending from patterns described in EIP.
 
 However, in recent years there has been a trend to rewrite systems in more stream-based fashion,
@@ -94,7 +94,23 @@ against a very large data set.
 
 As you see in the animation, CassandraSource lets you run a CQL query, which fetches data set (ResultSet) from Cassandra,
 and passes each Row from the ResultSet as an element going through Akka Stream.
-It is not something that keeps polling given some filtering criteria, and that's why it is suitable for batch-like operations.
+Note that it is not something that keeps polling given some filtering criteria, and that's why it is suitable for batch-like operations.
+
+
+In a nutshell, you can create and run a stream with Alpakka Cassandra connector like below:
+
+```java
+final Statement stmt =
+  new SimpleStatement("SELECT * FROM akka_stream_java_test.users").setFetchSize(100);
+
+final RunnableGraph<NotUsed> runnableGraph =
+  CassandraSource.create(stmt, session)
+    .to(Sink.foreach(row -> System.out.println(row)));
+
+runnableGraph.run(materializer);
+```
+
+but we'll see how it works in more detail in this section.
 
 To go through the example code, you firstly need to add following import statements,
 
@@ -129,10 +145,10 @@ final ActorSystem system = ActorSystem.create();
 final Materializer materializer = ActorMaterializer.create(system);
 ```
 
-If you are not familiar with ActorSystem and Materializer, you can assume,
+If you are not familiar with ActorSystem and Materializer, you can assume that
 they are like underlying infrastructure to run Akka Stream.
 Typically each of them has only one instance in your application, more precisely,
-in your (Linux) process.
+in your (OS) process.
 
 In a production environment, you should already have a data set in Cassandra, but in this example,
 we need to prepare a data set by ourselves before running Akka Stream with CassandraSource.
@@ -151,11 +167,10 @@ CREATE TABLE akka_stream_java_test.users (
 ```
 
 In the example code, we use Java driver to execute them so that you don't need to install
-CQL client yourself to connect to Cassandra.
+CQL client yourself to connect to Cassandra. Keyspace is what contains Cassandra tables, and you need to declare a replication
+strategy when you create a keyspace. After creating the keyspace, you can create a table under it.
 
-Keyspace is what contains Cassandra tables, and you need to declare a replication
-strategy when you create a keyspace.
-After creating the keyspace, you can create a table under it,
+Now you can insert data into the table:
 
 ```java
 for(int i = 1; i <= 1000; i++){
@@ -170,7 +185,7 @@ for(int i = 1; i <= 1000; i++){
 }
 ```
 
-If you execute the following query,
+Here, if you execute the following query,
 
 ```
 select * FROM akka_stream_java_test.users ;
@@ -208,14 +223,13 @@ final Statement stmt =
 Cassandra Java driver already has a [paging feature](https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/),
 so that you don't need to be afraid of your Cassandra client going out of memory by fetching a huge data set in one go.
 Cassandra's paging works nicely with Akka Stream, and on top of it, Akka Stream allows fully non-blocking execution
-which Cassandra Java driver does not provide on its own.
+without Cassandra driver's imperative [async-paging interface](https://docs.datastax.com/en/developer/java-driver/3.2/manual/async/#async-paging).
 
-For a simple example, you can run Akka Stream like below:
+Finally, you can run the stream like below:
 
 ```java
 final RunnableGraph<NotUsed> runnableGraph =
   CassandraSource.create(stmt, session)
-    .log("logging") //prints out row (e.g.) Row[498, 35, John]
     .to(Sink.foreach(row -> System.out.println(row)));
 
 runnableGraph.run(materializer);
@@ -236,16 +250,10 @@ Row[536, 35, John]
 ...
 ```
 
-- Describe how it improves, compared to simply using cassandra query
-  - Chris Batey's picture
-  - http://2.bp.blogspot.com/-7HGmZMvPUMo/VNi-PTMHztI/AAAAAAAAAXQ/9IXNl2Pz-pM/s1600/Screenshot%2B2015-02-09%2B14.03.16.png
 - Typical cases where this is useful
   - filtering, when you cannot express filtering criteria as CQL (e.g.) it changes by user
   - aggregation
   - throttling, if Source cannot do appropriate back pressuring
-
-https://www.slideshare.net/doanduyhai/cassandra-drivers-and-tools
-https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/
 
 
 ### CassandraSink example
