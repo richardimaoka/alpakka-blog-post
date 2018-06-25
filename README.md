@@ -258,8 +258,142 @@ Row[536, 35, John]
 
 ### CassandraSink example
 
-- Same 4 points as CassandraSource
-- mapAsync to improve performance, as Cassandra is a distributed store
+The next example we see is CassandraSink, which lets you insert Rows into Cassandra at the end of the stream.
+
+This is useful for more like a real-time system that keeps running where your data goes from a data source and
+eventually written into Cassandra.
+
+- animation
+
+To run CassandraSink, code would look like below:
+
+```java
+final PreparedStatement insertTemplate = session.prepare(
+  "INSERT INTO akka_stream_java_test.user_comments (id, user_id, comment) VALUES (uuid(), ?, ?)"
+);
+
+BiFunction<UserComment, PreparedStatement, BoundStatement> statementBinder =
+  (userData, preparedStatement) -> preparedStatement.bind(userData.userId, userData.comment);
+
+final Sink<UserComment, CompletionStage<Done>> sink =
+  CassandraSink.create(2, insertTemplate, statementBinder, session);
+
+source.to(sink).run(materializer);
+```
+
+and we go into more detail from here.
+
+In this example, we use a different table from what we used in the CassandraSource example.
+
+```
+CREATE TABLE akka_stream_java_test.user_comments (
+  id uuid,
+  user_id int,
+  comment text,
+  PRIMARY KEY (id)
+);
+```
+
+This table is associated with previous `users` table, where `user_comments.user_id` is reference to `users.id`.
+However, there is no concept of foreign keys in Cassandra, so your application code needs to make sure the association
+is kept tight (e.g. you must not insert a user_comments row with non-existent user_id in users.id).
+Anyway, that is beyond the scope of this article, so let's come back to the CassandraSink stuff.
+
+As you have the table in Cassandra, you can now define an associated model class in Java.
+```java
+public static class UserComment {
+  int    userId;
+  String comment;
+
+  UserComment(int userId, String comment) {
+    this.userId = userId;
+    this.comment = comment;
+  }
+}
+```
+
+You need to create a prepared statement, to insert parameterized row into Cassandra.
+Prepared statements in Cassandra is similar to that of SQL for relational databases, and they are strong against injection attacks.
+
+```java
+final PreparedStatement insertTemplate = session.prepare(
+  "INSERT INTO akka_stream_java_test.user_comments (id, user_id, comment) VALUES (uuid(), ?, ?)"
+);
+```
+
+Next, you need this (probably) unfamiliar-looking `BiFunction`.
+
+```java
+BiFunction<UserComment, PreparedStatement, BoundStatement> statementBinder =
+  (userComment, preparedStatement) -> preparedStatement.bind(userData.userId, userData.comment);
+```
+
+The signature of this `BiFunction` is bit complicated, but it means:
+ - takes UserComment as input
+ - "bind" it to `PreparedStatement`
+ - so that the bound CQL statement can be executed
+
+For easiness, we can provide a data source as simple as:
+
+```java
+Source<UserComment, NotUsed> source =
+  Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+    .map(i -> new UserComment(1, "some comment"))
+```
+
+and do:
+
+```java
+source.to(sink).run(materializer);
+```
+
+however, let's do something smarter and more realistic here.
+
+You can use `Source.actorRef` to connect a `Sink` to an `Actor`,
+
+```java
+final Source<UserComment, ActorRef> source = Source.actorRef(4, OverflowStrategy.fail());
+
+final ActorRef actorRef =
+  source
+  .to(sink)           //to() takes the left Materialized value
+  .run(materializer); //run() takes the left Materialized value
+```
+
+- diagram of materialization
+
+and pass this `ActorRef` to provide input from whatever data source you like.
+For example, your data source can be HTTP requests from Akka HTTP server, and you can pass requests to this `ActorRef` after
+transforming requests to `UserComment`. Of course, simply another actor can keep sending `UserComment` to this `ActorRef`
+to process the elements in the stream.
+
+In the example, it's too much to create an Akka HTTP server or an Akka Actor, so let's do the following to connect the
+simple data source of a list of integers with the above actorRef.
+
+```java
+Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+  // throttling the stream so that the Source.actorRef() does not overflow
+  .throttle(1, Duration.of(50, ChronoUnit.MILLIS))
+  .map(i -> new UserComment(1, "some comment"))
+  .to(Sink.actorRef(actorRef, "stream completed"))
+  .run(materializer);
+```
+
+One thing to note about this example is that you can use mapAsync to improve throughput of the stream.
+As discussed previously, Cassandra is known for its great write performance, and is distributed by nature so that your
+writes are balanced across different nodes in the Cassandra cluster, not hammering a single node, as long as your table
+defines the appropriate persistence key.
+
+So, chances are that you can insert into Cassandra parallelly to achieve faster CassandraSink than your data source,
+which contributes to the stability of your entire stream.
+
+```
+HOW HOW HOW??? mapasync
+HOW HOW HOW???
+HOW HOW HOW???
+HOW HOW HOW???
+HOW HOW HOW???
+```
 
 ****************************************************************************
 ****************************************************************************

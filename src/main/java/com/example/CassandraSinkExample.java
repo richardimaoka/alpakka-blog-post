@@ -63,7 +63,6 @@ public class CassandraSinkExample {
       // due to to() and run() as described below
       final ActorRef actorRef =
         source
-        .log("hello")
         .to(sink)           //to() takes the left Materialized value
         .run(materializer); //run() takes the left Materialized value
 
