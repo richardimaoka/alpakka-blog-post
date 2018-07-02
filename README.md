@@ -384,8 +384,30 @@ which contributes to the stability of your entire stream.
 
 ## CasandraFlow example
 
-- Same 4 points as CassandraSource
-- We should not use UNLOGGED batch? It doesn't improve performance unless you are SURE your batch has the same partition key
-  - http://batey.info/cassandra-anti-pattern-misuse-of.html
+The last example we see is CassandraFlow. CassandraFlow allows you persist each element coming through
+the CassandraFlow operator similar to CassandraSink, but the difference is that it also emits the element
+after the CQL insert statement is finished.
 
 ![CassandraFlowExample](CassandraFlowExample.gif)
+
+In short, you can run CassandraFlow like below.
+
+```java
+final PreparedStatement insertTemplate = session.prepare(
+  "INSERT INTO akka_stream_java_test.user_comments (id, user_id, comment) VALUES (uuid(), ?, ?)"
+);
+
+BiFunction<UserComment, PreparedStatement, BoundStatement> statementBinder =
+  (userData, preparedStatement) -> preparedStatement.bind(userData.userId, userData.comment);
+
+final Flow<UserComment, UserComment, NotUsed> flow =
+  CassandraFlow.createWithPassThrough(2, insertTemplate, statementBinder, session, system.dispatcher());
+
+source.via(flow).to(sink).run(materializer);
+```
+
+### Details of the example
+
+### More realistic example
+
+DB polling would be a good application?
