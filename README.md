@@ -90,7 +90,7 @@ Alpakka Cassandra has three different connectors, CassandraSource, CassandraSink
 The first example we talk about is CassandraSource, which could be useful when you perform a batch-like operation
 against a very large data set.
 
-- Animation
+![CassandraSourceExample](CassandraSourceExample.gif)
 
 As you see in the animation, CassandraSource lets you run a CQL query, which fetches data set (ResultSet) from Cassandra,
 and passes each Row from the ResultSet as an element going through Akka Stream.
@@ -263,7 +263,7 @@ The next example we see is CassandraSink, which lets you insert Rows into Cassan
 This is useful for more like a real-time system that keeps running where your data goes from a data source and
 eventually written into Cassandra.
 
-- animation
+![CassandraSinkExample](CassandraSinkExample.gif)
 
 To run CassandraSink, code would look like below:
 
@@ -410,7 +410,7 @@ Use parallelism, etc to form a more realistic example
 - We should not use UNLOGGED batch? It doesn't improve performance unless you are SURE your batch has the same partition key
   - http://batey.info/cassandra-anti-pattern-misuse-of.html
 
-
+![CassandraFlowExample](CassandraFlowExample.gif)
 
 ## Integration with akka-persistence-cassandra??
 
