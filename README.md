@@ -15,17 +15,14 @@ In this article, we introduce Alpakka's Cassandra connector as an example, and s
 
 ## About Alpakka
 
-Alpakka is a community based effort collaborating with Akka maintainers at Lightbend,
+[Alpakka](https://github.com/akka/alpakka) is a community based effort collaborating with Akka maintainers at Lightbend,
 and provides a large, and ever increasing number of connectors for files, queues including AMQP and Kafka, AWS/GCP/Azure services, and more.
 
 **************************************
-**************************************
 QUESTION: Do we want to show the contrast in the number of Alpakka plugins in 2016 abd 2018?
-**************************************
-**************************************
 
-https://github.com/akka/alpakka
-https://akka.io/blog/news/2018/05/02/alpakka-team
+- https://akka.io/blog/news/2018/05/02/alpakka-team
+**************************************
 
 Since Alpakka provides the connectors as Akka Stream operators, it's not just easy to connect to these other systems and services,
 but you can also benefit from Akka Stream's back-pressure support and fine-grained control over the stream at any level you want.
@@ -45,17 +42,7 @@ If you already have existing data stored in Cassandra and want to introduce stre
 or you have Akka-based or Akka Stream-based systems and looking for a database with great scalability and fault tolerance,
 this blog post can be useful for you.
 
-## Examples
-
-****************************************************************************
-****************************************************************************
-TODO
-
-As said earlier, do buffering, throttling, etc to show benefits of
-Akka streams. The current examples are just as boring as plain Cassandra
-Java drives.
-****************************************************************************
-****************************************************************************
+## Prerequisites for running Examples
 
 The full code example is [here](where?).
 
@@ -83,7 +70,7 @@ To run the examples, you must add the following dependency to your project.
 libraryDependencies += "com.lightbend.akka" %% "akka-stream-alpakka-cassandra" % "0.19"
 ```
 
-### CassandraSource example
+## CassandraSource example
 
 Alpakka Cassandra has three different connectors, CassandraSource, CassandraSink and CasssandraFlow.
 
@@ -95,7 +82,6 @@ against a very large data set.
 As you see in the animation, CassandraSource lets you run a CQL query, which fetches data set (ResultSet) from Cassandra,
 and passes each Row from the ResultSet as an element going through Akka Stream.
 Note that it is not something that keeps polling given some filtering criteria, and that's why it is suitable for batch-like operations.
-
 
 In a nutshell, you can create and run a stream with Alpakka Cassandra connector like below:
 
@@ -110,7 +96,9 @@ final RunnableGraph<NotUsed> runnableGraph =
 runnableGraph.run(materializer);
 ```
 
-but we'll see how it works in more detail in this section.
+but we'll see how it works in more detail as follows.
+
+### Details of the example
 
 To go through the example code, you firstly need to add following import statements,
 
@@ -250,13 +238,14 @@ Row[536, 35, John]
 ...
 ```
 
+### More realistic CassandraSource example
+
 - Typical cases where this is useful
   - filtering, when you cannot express filtering criteria as CQL (e.g.) it changes by user
   - aggregation
-  - throttling, if Source cannot do appropriate back pressuring
+  - throttling, if flow/sink connected to CassandraSource cannot perform appropriate back pressuring
 
-
-### CassandraSink example
+## CassandraSink example
 
 The next example we see is CassandraSink, which lets you insert Rows into Cassandra at the end of the stream.
 
@@ -265,7 +254,7 @@ eventually written into Cassandra.
 
 ![CassandraSinkExample](CassandraSinkExample.gif)
 
-To run CassandraSink, code would look like below:
+To run CassandraSink, the code would look like below:
 
 ```java
 final PreparedStatement insertTemplate = session.prepare(
@@ -281,7 +270,7 @@ final Sink<UserComment, CompletionStage<Done>> sink =
 source.to(sink).run(materializer);
 ```
 
-and we go into more detail from here.
+### Details of the example
 
 In this example, we use a different table from what we used in the CassandraSource example.
 
@@ -300,6 +289,7 @@ is kept tight (e.g. you must not insert a user_comments row with non-existent us
 Anyway, that is beyond the scope of this article, so let's come back to the CassandraSink stuff.
 
 As you have the table in Cassandra, you can now define an associated model class in Java.
+
 ```java
 public static class UserComment {
   int    userId;
@@ -363,6 +353,7 @@ final ActorRef actorRef =
 - diagram of materialization
 
 and pass this `ActorRef` to provide input from whatever data source you like.
+
 For example, your data source can be HTTP requests from Akka HTTP server, and you can pass requests to this `ActorRef` after
 transforming requests to `UserComment`. Of course, simply another actor can keep sending `UserComment` to this `ActorRef`
 to process the elements in the stream.
@@ -379,6 +370,8 @@ Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
   .run(materializer);
 ```
 
+### More realistic example
+
 One thing to note about this example is that you can use mapAsync to improve throughput of the stream.
 As discussed previously, Cassandra is known for its great write performance, and is distributed by nature so that your
 writes are balanced across different nodes in the Cassandra cluster, not hammering a single node, as long as your table
@@ -387,33 +380,12 @@ defines the appropriate persistence key.
 So, chances are that you can insert into Cassandra parallelly to achieve faster CassandraSink than your data source,
 which contributes to the stability of your entire stream.
 
-```
-HOW HOW HOW??? mapasync
-HOW HOW HOW???
-HOW HOW HOW???
-HOW HOW HOW???
-HOW HOW HOW???
-```
+- supply code snippets
 
-****************************************************************************
-****************************************************************************
-TODO
-
-For CassandraSink, real-time stream processing can be a good example.
-Use parallelism, etc to form a more realistic example
-****************************************************************************
-****************************************************************************
-
-### CasandraFlow example
+## CasandraFlow example
 
 - Same 4 points as CassandraSource
 - We should not use UNLOGGED batch? It doesn't improve performance unless you are SURE your batch has the same partition key
   - http://batey.info/cassandra-anti-pattern-misuse-of.html
 
 ![CassandraFlowExample](CassandraFlowExample.gif)
-
-## Integration with akka-persistence-cassandra??
-
-- Maybe 1. write into Cassandra via akka-persistence-cassandra, and 2. read from Cassandra with CassandraSource
- - https://www.beyondthelines.net/computing/akka-persistence/
-- Probably goes beyond the scope of this article
