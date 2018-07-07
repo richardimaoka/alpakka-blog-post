@@ -1,15 +1,15 @@
 ## Background
 
-Enterprise Integration Patterns, EIP, have been a great success in the enterprise world,
-which provide reusable architecture patterns to construct complicated systems from simple components.
-There have been many systems written in Java following or extending from patterns described in EIP.
+Enterprise Integration Patterns, EIP, provide reusable architecture patterns to construct complicated systems from simple components.
+It has been a great success in the enterprise world, and although ETP itself is language-agnostic,
+there have been many systems written in Java following or extending from EIP.
 
 However, in recent years there has been a trend to rewrite systems in more stream-based fashion,
-given a massive scale of data such enterprise systems need to process every day,
+given a massive scale of data enterprise systems need to process every day,
 and an increasing business demand for real-time analysis.
 
-Alpakka, which is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka,
-is a great fit in this area. It allows you easily connect your systems with other external systems and services, and perform stream-based operations.
+Alpakka is a great fit in this area - it is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.
+It allows you easily connect your systems with other external systems and services, and perform stream-based operations.
 
 In this article, we introduce Alpakka's Cassandra connector as an example, and see what Alpakka gives you over Cassandra's plain Java driver.
 
@@ -18,11 +18,10 @@ In this article, we introduce Alpakka's Cassandra connector as an example, and s
 [Alpakka](https://github.com/akka/alpakka) is a community based effort collaborating with Akka maintainers at Lightbend,
 and provides a large, and ever increasing number of connectors for files, queues including AMQP and Kafka, AWS/GCP/Azure services, and more.
 
-**************************************
-QUESTION: Do we want to show the contrast in the number of Alpakka plugins in 2016 abd 2018?
+You can see how Alpakka grew over time from Akka team's [blog post](https://akka.io/blog/news/2018/05/02/alpakka-team),
+and the increased number of connectors as in the below screenshot.
 
-- https://akka.io/blog/news/2018/05/02/alpakka-team
-**************************************
+![Alpakka Growth](alpakka-growth.png)
 
 Since Alpakka provides the connectors as Akka Stream operators, it's not just easy to connect to these other systems and services,
 but you can also benefit from Akka Stream's back-pressure support and fine-grained control over the stream at any level you want.
