@@ -424,6 +424,7 @@ You can use `Source.actorRef` to connect a `Sink` to an `Actor`,
 ```java
 final Source<UserComment, ActorRef> source = Source.actorRef(4, OverflowStrategy.fail());
 
+// Stream 1
 final ActorRef actorRef =
   source
   .to(cassandraSink)  //to() takes the left materialized value, (i.e.) source's ActorRef
@@ -435,6 +436,7 @@ and pass this `ActorRef` to provide input from whatever data source you like.
 ![CassandraSinkExample2](CassandraSinkExample2.jpg)
 
 ```java
+// Stream 2
 Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
   // throttling the stream so that the Source.actorRef() does not overflow
   .throttle(1, Duration.of(50, ChronoUnit.MILLIS))
