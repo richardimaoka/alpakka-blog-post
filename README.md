@@ -419,6 +419,8 @@ however, let's do something smarter and more useful here.
 
 You can use `Source.actorRef` to connect a `Sink` to an `Actor`,
 
+![Source ActorRef](Source-actorRef.gif)
+
 ```java
 final Source<UserComment, ActorRef> source = Source.actorRef(4, OverflowStrategy.fail());
 
@@ -428,9 +430,9 @@ final ActorRef actorRef =
   .run(materializer);
 ```
 
-![Source ActorRef](Source-actorRef.gif)
-
 and pass this `ActorRef` to provide input from whatever data source you like.
+
+![CassandraSinkExample2](CassandraSinkExample2.jpg)
 
 ```java
 Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
