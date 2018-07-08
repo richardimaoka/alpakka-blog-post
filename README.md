@@ -463,7 +463,7 @@ source
   .run(materializer);
 ```
 
-![CassandraSink alsoTo](CassandraSink-alsoTo.gif)
+![CassandraSink alsoTo](CassandraSink-alsoTo.jpg)
 
 
 ## CasandraFlow example
