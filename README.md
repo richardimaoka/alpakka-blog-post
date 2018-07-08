@@ -433,7 +433,7 @@ final ActorRef actorRef =
 
 and pass this `ActorRef` to provide input from whatever data source you like.
 
-![CassandraSinkExample2](CassandraSinkExample2.jpg)
+![CassandraSinkExampleB](CassandraSinkExampleB.jpg)
 
 ```java
 // Stream 2
