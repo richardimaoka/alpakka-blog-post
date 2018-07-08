@@ -213,7 +213,7 @@ final Statement stmt =
   new SimpleStatement("SELECT * FROM akka_stream_java_test.users").setFetchSize(100);
 ```
 
-Cassandra Java driver already has a [paging feature](https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/),
+Cassandra Java driver already has a [paging feature](https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/), (the below picture is cited from the reference Cassandra article)
 
 ![Cassandra Paging](cassandra-paging.png)
 
@@ -255,7 +255,11 @@ This section is in progress. Should it be omitted as the article is getting too 
 ```java
 CassandraSource
   .create(stmt, session)
-  .map(row -> new User(...))
+  .map(row -> new User(
+    row.getInt("id"),
+    row.getString("name"),
+    row.getInt("age")
+  ))
   .mapAsync(1, user -> {
     ... //make an external service call
   })
@@ -321,10 +325,10 @@ final PreparedStatement insertTemplate = session.prepare(
 BiFunction<UserComment, PreparedStatement, BoundStatement> statementBinder =
   (userData, preparedStatement) -> preparedStatement.bind(userData.userId, userData.comment);
 
-final Sink<UserComment, CompletionStage<Done>> sink =
+final Sink<UserComment, CompletionStage<Done>> cassandraSink =
   CassandraSink.create(2, insertTemplate, statementBinder, session);
 
-source.to(sink).run(materializer);
+source.to(cassandraSink).run(materializer);
 ```
 
 ### Details of the example
@@ -380,6 +384,14 @@ The signature of this `BiFunction` is bit complicated, but it means:
  - "bind" it to `PreparedStatement`
  - so that the bound CQL statement can be executed
 
+Using `statementBinder`, now you can create `CassandraSink`.
+
+```
+final Sink<UserComment, CompletionStage<Done>> cassandraSink =
+  CassandraSink.create(2, insertTemplate, statementBinder, session);
+
+```
+
 For easiness, we can provide a data source as simple as:
 
 ```java
@@ -391,10 +403,10 @@ Source<UserComment, NotUsed> source =
 and do:
 
 ```java
-source.to(sink).run(materializer);
+source.to(cassandraSink).run(materializer);
 ```
 
-however, let's do something smarter and more realistic here.
+however, let's do something smarter and more useful here.
 
 You can use `Source.actorRef` to connect a `Sink` to an `Actor`,
 
@@ -407,7 +419,7 @@ final ActorRef actorRef =
   .run(materializer); //run() takes the left Materialized value
 ```
 
-- diagram of materialization
+- TODO add diagram of materialization
 
 and pass this `ActorRef` to provide input from whatever data source you like.
 
@@ -423,21 +435,33 @@ Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
   // throttling the stream so that the Source.actorRef() does not overflow
   .throttle(1, Duration.of(50, ChronoUnit.MILLIS))
   .map(i -> new UserComment(1, "some comment"))
+  //actorRef below is connected to CassandraSink
   .to(Sink.actorRef(actorRef, "stream completed"))
   .run(materializer);
 ```
 
-### More realistic example
+### Note on parallelism
 
-One thing to note about this example is that you can use mapAsync to improve throughput of the stream.
+One thing to note about this example is that you can use the `parallelism` parameter of `CassandraSink` to improve throughput of the stream.
 As discussed previously, Cassandra is known for its great write performance, and is distributed by nature so that your
 writes are balanced across different nodes in the Cassandra cluster, not hammering a single node, as long as your table
-defines the appropriate persistence key.
+defines the appropriate Cassandra persistence key.
 
 So, chances are that you can insert into Cassandra parallelly to achieve faster CassandraSink than your data source,
-which contributes to the stability of your entire stream.
+which is a good thing and contributes to the stability of your entire stream.
 
-- supply code snippets
+## More realistic examples
+
+- persist elements to multiple external sinks, by `alsoTo`
+  - be careful on how each sink handles failure, failure on a single element might make the entire stream stuck with back-pressure
+
+```java
+source
+  .alsoTo(elasticSearchCink)
+  .alsoTo(jdbcSink)
+  .to(cassandraSink)
+  .run(materializer);
+```
 
 ## CasandraFlow example
 
@@ -457,14 +481,38 @@ final PreparedStatement insertTemplate = session.prepare(
 BiFunction<UserComment, PreparedStatement, BoundStatement> statementBinder =
   (userData, preparedStatement) -> preparedStatement.bind(userData.userId, userData.comment);
 
-final Flow<UserComment, UserComment, NotUsed> flow =
+final Flow<UserComment, UserComment, NotUsed> cassandraFlow =
   CassandraFlow.createWithPassThrough(2, insertTemplate, statementBinder, session, system.dispatcher());
 
-source.via(flow).to(sink).run(materializer);
+source.via(cassandraFlow).to(sink).run(materializer);
 ```
 
-### Details of the example
+The above example is similar to `CassandraSink`, where the difference is that Cassandra is a `Flow`,
+so elements passes through `CassandraFlow` to a different `Sink`.
+
+Also, what we discussed in the note about the `CassandraSink` parallelism applies to `CassandraFlow` too.
 
 ### More realistic example
 
-DB polling would be a good application?
+- Replacement to DB polling
+
+One good use case of CassandraFlow is replacement of DB polling. It is a common use case that
+you want to perform a certain operation whenever there is a new row inserted into a database.
+
+A traditional way to achieve this is to periodical DB polling - query the database (e.g.) every X minutes,
+and if you find new rows inserted, perform the operation on them. To see if there are new rows inserted,
+the client which polls the database remembers the last element processed, and only fetches rows which
+are newer than that timestamp.
+
+TODO add a diagram about DB pooling
+
+Using `CassandraFlow`, you can achieve such an operation "triggered by new insertion" in a more straightforward manner.
+Whenever insertion to Cassandra succeeds, you can perform the operation.
+
+```java
+source
+  .via(cassandraFlow)
+  .via(someOperationOnUser)
+  .to(sink)
+  .run(materializer);
+```
