@@ -52,7 +52,7 @@ public class CassandraSinkExample {
       BiFunction<UserComment, PreparedStatement, BoundStatement> statementBinder =
         (userData, preparedStatement) -> preparedStatement.bind(userData.userId, userData.comment);
 
-      final Sink<UserComment, CompletionStage<Done>> sink =
+      final Sink<UserComment, CompletionStage<Done>> cassandraSink =
         CassandraSink.create(2, insertTemplate, statementBinder, session);
 
       // OverflowStrategy.fail() might not be appropriate in production, as it makes the entire stream fail on overflow.
@@ -63,8 +63,8 @@ public class CassandraSinkExample {
       // due to to() and run() as described below
       final ActorRef actorRef =
         source
-        .to(sink)           //to() takes the left Materialized value
-        .run(materializer); //run() takes the left Materialized value
+        .to(cassandraSink) //to() takes the left materialized value, (i.e.) source's ActorRef
+        .run(materializer);
 
       // In production systems, you can pass around the above `actorRef` to connect the CassandraSink stream to
       // whatever input you like, (e.g.) an HTTP endpoint which forwards UserComment per HTTP request.

@@ -24,8 +24,9 @@ and the increased number of connectors as in the below screenshot.
 ![Alpakka Growth](alpakka-growth.png)
 
 Since Alpakka provides the connectors as Akka Stream operators, it's not just easy to connect to these other systems and services,
-but you can also benefit from Akka Stream's back-pressure support and fine-grained control over the stream at any level you want.
-Akka Stream's flexible DSL makes it easy to combine different operators to perform buffering, throttling, branching, pub/sub, and you can even create your own operators.
+but you can also get benefit from Akka Stream's back-pressure support and fine-grained control over the stream at any level you want.
+Akka Stream's flexible DSL makes it easy to combine different operators to perform things like buffering, throttling, branching, pub/sub, etc.
+What's more, you can even create your own operators.
 
 ## About Cassandra
 
@@ -43,7 +44,7 @@ this blog post can be useful for you.
 
 ## Prerequisites for running Examples
 
-The full code example is [here](where?).
+The full code example is [here](link-to-git-repository).
 
 ### Bring up Cassandra
 
@@ -59,7 +60,7 @@ docker run -p 127.0.0.1:9042:9042 -d cassandra
 ```
 
 If you are not familiar with Docker, [download Cassandra](http://cassandra.apache.org/download/),
-unarchive it, set PATH to the Cassandra bin directory..
+unarchive it, set PATH to the Cassandra bin directory
 
 ### Dependency
 
@@ -71,16 +72,17 @@ libraryDependencies += "com.lightbend.akka" %% "akka-stream-alpakka-cassandra" %
 
 ## CassandraSource example
 
-Alpakka Cassandra has three different connectors, CassandraSource, CassandraSink and CasssandraFlow.
+Alpakka Cassandra has three different connectors, `CassandraSource`, `CassandraSink` and `CasssandraFlow`.
 
-The first example we talk about is CassandraSource, which could be useful when you perform a batch-like operation
+The first example we talk about is `CassandraSource`, which could be useful when you perform a batch-like operation
 against a very large data set.
 
 ![CassandraSourceExample](CassandraSourceExample.gif)
 
-As you see in the animation, CassandraSource lets you run a CQL query, which fetches data set (ResultSet) from Cassandra,
-and passes each Row from the ResultSet as an element going through Akka Stream.
-Note that it is not something that keeps polling given some filtering criteria, and that's why it is suitable for batch-like operations.
+As you see in the animation, `CassandraSource` lets you run a CQL query, which fetches `ResultSet` from Cassandra,
+and passes each `Row` from the `ResultSet` as an element going through Akka Stream.
+Note that the CQL query is only run once. It is not something that keeps polling Cassandra given some filtering criteria,
+and that's why it is suitable for batch-like operations.
 
 In a nutshell, you can create and run a stream with Alpakka Cassandra connector like below:
 
@@ -98,6 +100,8 @@ runnableGraph.run(materializer);
 but we'll see how it works in more detail as follows.
 
 ### Details of the example
+
+Again thehe full code example can be found [here](link-to-git-repository).
 
 To go through the example code, you firstly need to add following import statements,
 
@@ -117,7 +121,7 @@ import akka.stream.javadsl.Sink;
 import com.datastax.driver.core.*;
 ```
 
-and you need to initialize the following stuff before running CassandraSource to connect to Cassandra.
+and you need to initialize the following stuff before running `CassandraSource` to connect to Cassandra.
 
 ```java
 // Make sure you already brought up Cassandra, which is accessible via the host and port below.
@@ -127,18 +131,18 @@ final Session session = Cluster.builder()
   .addContactPoint("127.0.0.1").withPort(9042)
   .build().connect();
 
-// ActorSystem and Materializer are necessary as underlying infrastructure to run Akka Stream
+// ActorSystem and Materializer are necessary as the underlying infrastructure to run Akka Stream
 final ActorSystem system = ActorSystem.create();
 final Materializer materializer = ActorMaterializer.create(system);
 ```
 
-If you are not familiar with ActorSystem and Materializer, you can assume that
-they are like underlying infrastructure to run Akka Stream.
-Typically there is only one instance of ActorSystem and only one instance of Materializer in your application, more precisely,
+If you are not familiar with `ActorSystem` and `Materializer`, you can assume that
+they are like the underlying infrastructure to run Akka Stream.
+Typically there is only one instance of `ActorSystem` and only one instance of `Materializer` in your application, more precisely,
 in your (OS) process.
 
 In a production environment, you should already have a data set in Cassandra, but in this example,
-we prepare a data set by ourselves before running Akka Stream with CassandraSource.
+we prepare a data set by ourselves before running Akka Stream with `CassandraSource`.
 So let's create a keyspace and a table in Cassandra as follows:
 
 ```
@@ -159,7 +163,7 @@ final Statement createTable = new SimpleStatement(
 session.execute(createTable);
 ```
 
-In the example code which you can find [here](where?), we use the Cassandra Java driver to execute them so that you don't need to install
+In the above example code, we use the Cassandra Java driver to execute them so that you don't need to install
 CQL client yourself to connect to Cassandra. Keyspace is what contains Cassandra tables, and you need to declare a replication
 strategy when you create a keyspace. After creating the keyspace, you can create a table under it.
 
@@ -202,9 +206,9 @@ you will get the result set like below,
  ...
 ```
 
-but we will execute this query using CassandraSource.
+but we will execute this query using `CassandraSource`.
 
-To supply the query to CassandraSource, you should create a Statement beforehand,
+To supply the query to `CassandraSource`, you should create a Statement beforehand,
 using setFetchSize to set the paging size.
 
 ```java
@@ -246,7 +250,7 @@ Row[536, 35, John]
 ...
 ```
 
-### More realistic CassandraSource examples
+### More realistic `CassandraSource` examples
 
 This section is in progress. Should it be omitted as the article is getting too long??
 
@@ -292,7 +296,7 @@ CassandraSource
    )));
 ```
 
-- throttling, if flow/sink connected to CassandraSource cannot perform appropriate back pressuring
+- throttling, if flow/sink connected to `CassandraSource` cannot perform appropriate back pressuring
 
 ```java
 CassandraSource
@@ -308,7 +312,9 @@ CassandraSource
 
 ## CassandraSink example
 
-The next example we see is CassandraSink, which lets you insert Rows into Cassandra at the end of the stream.
+The full code example can be found [here](link-to-git-repository).
+
+The next example we see is CassandraSink, which lets you insert `Row`s into Cassandra at the end of the stream.
 
 This is useful for more like a real-time system that keeps running where your data goes from a data source and
 eventually written into Cassandra.
@@ -333,21 +339,25 @@ source.to(cassandraSink).run(materializer);
 
 ### Details of the example
 
-In this example, we use a different table from what we used in the CassandraSource example.
+In this example, we use a different table from what we used in the `CassandraSource` example.
 
 ```
-CREATE TABLE akka_stream_java_test.user_comments (
-  id uuid,
-  user_id int,
-  comment text,
-  PRIMARY KEY (id)
+final Statement createTable = new SimpleStatement(
+  "CREATE TABLE akka_stream_java_test.user_comments (" +
+    "id uuid, " +
+    "user_id int, " +
+    "comment text, " +
+    "PRIMARY KEY (id)" +
+  ");"
 );
+
+session.execute(createTable);
 ```
 
 This table is associated with previous `users` table, where `user_comments.user_id` is reference to `users.id`.
 However, there is no concept of foreign keys in Cassandra, so your application code needs to make sure the association
-is kept tight (e.g. you must not insert a user_comments row with non-existent user_id in users.id).
-Anyway, that is beyond the scope of this article, so let's come back to the CassandraSink stuff.
+is kept tight (i.e. every `user_id` value in `user_comments` must also exist in `users.id`).
+Anyway, that is beyond the scope of this article, so let's come back to the `CassandraSink` stuff.
 
 As you have the table in Cassandra, you can now define an associated model class in Java.
 
@@ -363,7 +373,7 @@ public static class UserComment {
 }
 ```
 
-You need to create a prepared statement, to insert parameterized row into Cassandra.
+You need to create a prepared statement, to insert parameterized rows into Cassandra.
 Prepared statements in Cassandra is similar to that of SQL for relational databases, and they are strong against injection attacks.
 
 ```java
@@ -380,7 +390,7 @@ BiFunction<UserComment, PreparedStatement, BoundStatement> statementBinder =
 ```
 
 The signature of this `BiFunction` is bit complicated, but it means:
- - takes UserComment as input
+ - take `UserComment` as input
  - "bind" it to `PreparedStatement`
  - so that the bound CQL statement can be executed
 
@@ -392,17 +402,16 @@ final Sink<UserComment, CompletionStage<Done>> cassandraSink =
 
 ```
 
-For easiness, we can provide a data source as simple as:
+The parameter `2` in `CassandraSink.create(2, ...)` specifies the parallelism on writing into Cassandra.
+We'll discuss about the parallelism bit later in this article.
+
+For easiness, we can provide a data source as simple as below and run the stream:
 
 ```java
 Source<UserComment, NotUsed> source =
   Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
     .map(i -> new UserComment(1, "some comment"))
-```
 
-and do:
-
-```java
 source.to(cassandraSink).run(materializer);
 ```
 
@@ -415,20 +424,13 @@ final Source<UserComment, ActorRef> source = Source.actorRef(4, OverflowStrategy
 
 final ActorRef actorRef =
   source
-  .to(sink)           //to() takes the left Materialized value
-  .run(materializer); //run() takes the left Materialized value
+  .to(cassandraSink)  //to() takes the left materialized value, (i.e.) source's ActorRef
+  .run(materializer);
 ```
 
 ![Source ActorRef](Source-actorRef.gif)
 
 and pass this `ActorRef` to provide input from whatever data source you like.
-
-For example, your data source can be HTTP requests from Akka HTTP server, and you can pass requests to this `ActorRef` after
-transforming requests to `UserComment`. Of course, simply another actor can keep sending `UserComment` to this `ActorRef`
-to process the elements in the stream.
-
-In the example, it's too much to create an Akka HTTP server or an Akka Actor, so let's do the following to connect the
-simple data source of a list of integers with the above actorRef.
 
 ```java
 Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
@@ -440,6 +442,13 @@ Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
   .run(materializer);
 ```
 
+For example, instead of sending elements from such a simple `int` list,
+your data source can be HTTP requests from an (Akka) HTTP server,
+and you can pass requests to this `ActorRef` after transforming requests to `UserComment`.
+
+Or it could be a task queue like RabbitMQ or Kafka, which works as the data source,
+and you can perform necessary operations on items from the queue and persist them to Cassandra.
+
 ### Note on parallelism
 
 One thing to note about this example is that you can use the `parallelism` parameter of `CassandraSink` to improve throughput of the stream.
@@ -447,7 +456,7 @@ As discussed previously, Cassandra is known for its great write performance, and
 writes are balanced across different nodes in the Cassandra cluster, not hammering a single node, as long as your table
 defines the appropriate Cassandra persistence key.
 
-So, chances are that you can insert into Cassandra parallelly to achieve faster CassandraSink than your data source,
+So, chances are that you can insert into Cassandra parallelly to achieve faster `CassandraSink` than your data source,
 which is a good thing and contributes to the stability of your entire stream.
 
 ## More realistic examples
@@ -468,13 +477,15 @@ source
 
 ## CasandraFlow example
 
-The last example we see is CassandraFlow. CassandraFlow allows you persist each element coming through
-the CassandraFlow operator similar to CassandraSink, but the difference is that it also emits the element
+The full code example can be found [here](link-to-git-repository).
+
+The last example we see is `CassandraFlow`. `CassandraFlow` allows you persist each element coming through
+the `CassandraFlow` operator similar to `CassandraSink`, but the difference is that it also emits the element
 after the CQL insert statement is finished.
 
 ![CassandraFlowExample](CassandraFlowExample.gif)
 
-In short, you can run CassandraFlow like below.
+In short, you can run `CassandraFlow` like below.
 
 ```java
 final PreparedStatement insertTemplate = session.prepare(
@@ -490,20 +501,18 @@ final Flow<UserComment, UserComment, NotUsed> cassandraFlow =
 source.via(cassandraFlow).to(sink).run(materializer);
 ```
 
-The above example is similar to `CassandraSink`, where the difference is that Cassandra is a `Flow`,
-so elements passes through `CassandraFlow` to a different `Sink`.
-
+The above example is similar to `CassandraSink`, so we are not going too much detail about the example again.
 Also, what we discussed in the note about the `CassandraSink` parallelism applies to `CassandraFlow` too.
 
 ### More realistic example
 
 - Replacement to DB polling
 
-One good use case of CassandraFlow is replacement of DB polling. It is a common use case that
+One good use case of `CassandraFlow` is replacement of DB polling. It is a common requirement that
 you want to perform a certain operation whenever there is a new row inserted into a database.
 
 A traditional way to achieve this is to periodical DB polling - query the database (e.g.) every X minutes,
-and if you find new rows inserted, perform the operation on them. To see if there are new rows inserted,
+and if you find new rows inserted, perform operations on them. To see if there are new rows inserted,
 the client which polls the database remembers the last element processed, and only fetches rows which
 are newer than that timestamp.
 
@@ -513,7 +522,7 @@ Whenever insertion to Cassandra succeeds, you can perform the operation.
 ```java
 source
   .via(cassandraFlow)
-  .via(someOperationOnUser)
+  .via(someOperation)
   .to(sink)
   .run(materializer);
 ```
