@@ -419,7 +419,7 @@ final ActorRef actorRef =
   .run(materializer); //run() takes the left Materialized value
 ```
 
-- TODO add diagram of materialization
+![Source ActorRef](Source-actorRef.gif)
 
 and pass this `ActorRef` to provide input from whatever data source you like.
 
@@ -457,11 +457,14 @@ which is a good thing and contributes to the stability of your entire stream.
 
 ```java
 source
-  .alsoTo(elasticSearchCink)
+  .alsoTo(elasticSearchSink)
   .alsoTo(jdbcSink)
   .to(cassandraSink)
   .run(materializer);
 ```
+
+![CassandraSink alsoTo](CassandraSink-alsoTo.gif)
+
 
 ## CasandraFlow example
 
@@ -503,8 +506,6 @@ A traditional way to achieve this is to periodical DB polling - query the databa
 and if you find new rows inserted, perform the operation on them. To see if there are new rows inserted,
 the client which polls the database remembers the last element processed, and only fetches rows which
 are newer than that timestamp.
-
-TODO add a diagram about DB pooling
 
 Using `CassandraFlow`, you can achieve such an operation "triggered by new insertion" in a more straightforward manner.
 Whenever insertion to Cassandra succeeds, you can perform the operation.
