@@ -31,8 +31,8 @@ Akka Stream's flexible DSL makes it easy to combine different operators to perfo
 
 Cassandra is a database product originally created by Facebook, and known for its great write performance and distributed nature by design.
 
-https://academy.datastax.com/planet-cassandra/what-is-apache-cassandra
-http://cassandra.apache.org/
+- https://academy.datastax.com/planet-cassandra/what-is-apache-cassandra
+- http://cassandra.apache.org/
 
 Although Cassandra is different from relational databases in many aspects, its query language CQL has some similarities to SQL,
 and Cassandra indeed has a concept of tables.
@@ -134,26 +134,32 @@ final Materializer materializer = ActorMaterializer.create(system);
 
 If you are not familiar with ActorSystem and Materializer, you can assume that
 they are like underlying infrastructure to run Akka Stream.
-Typically each of them has only one instance in your application, more precisely,
+Typically there is only one instance of ActorSystem and only one instance of Materializer in your application, more precisely,
 in your (OS) process.
 
 In a production environment, you should already have a data set in Cassandra, but in this example,
-we need to prepare a data set by ourselves before running Akka Stream with CassandraSource.
+we prepare a data set by ourselves before running Akka Stream with CassandraSource.
 So let's create a keyspace and a table in Cassandra as follows:
 
 ```
-CREATE KEYSPACE IF NOT EXISTS akka_stream_java_test \
-  WITH REPLICATION = { 'class' :  'SimpleStrategy', 'replication_factor': 1 };
-
-CREATE TABLE akka_stream_java_test.users (
-  id int,
-  name text,
-  age int,
-  PRIMARY KEY (id)
+final Statement createKeyspace = new SimpleStatement(
+  "CREATE KEYSPACE IF NOT EXISTS akka_stream_java_test WITH REPLICATION = "
+   + "{ 'class' :  'SimpleStrategy', 'replication_factor': 1 };"
 );
+session.execute(createKeyspace);
+
+final Statement createTable = new SimpleStatement(
+  "CREATE TABLE akka_stream_java_test.users (" +
+    "id int, " +
+    "name text, " +
+    "age int, " +
+    "PRIMARY KEY (id)" +
+    ");"
+);
+session.execute(createTable);
 ```
 
-In the example code, we use Java driver to execute them so that you don't need to install
+In the example code which you can find [here](where?), we use the Cassandra Java driver to execute them so that you don't need to install
 CQL client yourself to connect to Cassandra. Keyspace is what contains Cassandra tables, and you need to declare a replication
 strategy when you create a keyspace. After creating the keyspace, you can create a table under it.
 
@@ -165,14 +171,14 @@ for(int i = 1; i <= 1000; i++){
   String name = "John";
   int age = 35;
 
-  // Prepared statement is typical in parameterized queries in CQL (Cassandra Query Language).
+  // Prepared statement is typical for parameterized queries in CQL (Cassandra Query Language).
   // In production systems, it can be used to guard the statement from injection attacks, similar to SQL prepared statement.
   BoundStatement bound = prepared.bind(i, name, age);
   session.execute(bound);
 }
 ```
 
-Here, if you execute the following query,
+Here, if you execute the following CQL query,
 
 ```
 select * FROM akka_stream_java_test.users ;
@@ -208,6 +214,9 @@ final Statement stmt =
 ```
 
 Cassandra Java driver already has a [paging feature](https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/),
+
+![Cassandra Paging](cassandra-paging.png)
+
 so that you don't need to be afraid of your Cassandra client going out of memory by fetching a huge data set in one go.
 Cassandra's paging works nicely with Akka Stream, and on top of it, Akka Stream allows fully non-blocking execution
 without Cassandra driver's imperative [async-paging interface](https://docs.datastax.com/en/developer/java-driver/3.2/manual/async/#async-paging).
@@ -237,12 +246,61 @@ Row[536, 35, John]
 ...
 ```
 
-### More realistic CassandraSource example
+### More realistic CassandraSource examples
 
-- Typical cases where this is useful
-  - filtering, when you cannot express filtering criteria as CQL (e.g.) it changes by user
-  - aggregation
-  - throttling, if flow/sink connected to CassandraSource cannot perform appropriate back pressuring
+This section is in progress. Should it be omitted as the article is getting too long??
+
+- filtering, when you cannot express filtering criteria as CQL (e.g.) it changes by user
+
+```java
+CassandraSource
+  .create(stmt, session)
+  .map(row -> new User(...))
+  .mapAsync(1, user -> {
+    ... //make an external service call
+  })
+  .filter(serviceResult -> {
+    ... //perform complicated filtering
+  })
+  .to(Sink.foreach(row -> System.out.println(row)));
+```
+
+- aggregation, CQL doesn't have native support for group by, unlike SQL. So you can do this:
+  FYI
+   - [How to perform similar group by operations in CQL described at Chris Batey's blog](http://christopher-batey.blogspot.com/2015/05/cassandra-aggregates-min-max-avg-group.html)
+   - [Akka Stream's groupBy operator](https://doc.akka.io/docs/akka/2.5/stream/operators/Source-or-Flow/groupBy.html)
+
+```java
+CassandraSource
+  .create(stmt, session)
+  .map(row -> new User(
+    row.getInt("id"),
+    row.getString("name"),
+    row.getInt("age")
+  ))
+  .groupBy(200, user -> user.age) //group by user's age
+  .fold(
+    akka.japi.Pair.create(0, 0),
+    (accumulated, user) -> akka.japi.Pair.create(user.age, accumulated.second() + 1)
+  )
+  .to(Sink.foreach(accumulated ->
+     System.out.println("age: " + accumulated.first() + " count: " + accumulated.second()
+   )));
+```
+
+- throttling, if flow/sink connected to CassandraSource cannot perform appropriate back pressuring
+
+```java
+CassandraSource
+  .create(stmt, session)
+  .map(row -> new User(
+    row.getInt("id"),
+    row.getString("name"),
+    row.getInt("age")
+  ))
+  .throttle(10, java.time.Duration.ofSeconds(1))
+  .to(externalSink); //Sink representing external system, like RDB, ElasticSearch, HTTP API, etc
+```
 
 ## CassandraSink example
 
