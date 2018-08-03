@@ -102,7 +102,6 @@ but we'll see how it works in more detail as follows.
 ### Details of the example
 
 Again the full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example).
-Again the full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example).
 
 To go through the example code, you firstly need to add following import statements,
 
@@ -253,6 +252,7 @@ Row[536, 35, John]
 
 ### More realistic `CassandraSource` examples
 
+This is good stuff. Keep it.
 This section is in progress. Should it be omitted as the article is getting too long??
 
 - filtering, when you cannot express filtering criteria as CQL (e.g.) it changes by user
@@ -411,7 +411,7 @@ For easiness, we can provide a data source as simple as below and run the stream
 ```java
 Source<UserComment, NotUsed> source =
   Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
-    .map(i -> new UserComment(1, "some comment"))
+    .map(i -> new UserComment(i, "some comment"))
 
 source.to(cassandraSink).run(materializer);
 ```
@@ -441,7 +441,7 @@ and pass this `ActorRef` to provide input from whatever data source you like.
 Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
   // throttling the stream so that the Source.actorRef() does not overflow
   .throttle(1, Duration.of(50, ChronoUnit.MILLIS))
-  .map(i -> new UserComment(1, "some comment"))
+  .map(i -> new UserComment(i, "some comment"))
   //actorRef below is connected to CassandraSink
   .to(Sink.actorRef(actorRef, "stream completed"))
   .run(materializer);
