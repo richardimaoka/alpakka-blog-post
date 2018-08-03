@@ -32,14 +32,13 @@ public class CassandraFlowExample {
     // Make sure you already brought up Cassandra, which is accessible via the host and port below.
     // The host and port would be driven from a config in a production environment
     // but hardcoding them here for simplicity.
-    final Session session = Cluster.builder()
-      .addContactPoint("127.0.0.1").withPort(9042)
-      .build().connect();
 
     final ActorSystem system = ActorSystem.create();
     final Materializer materializer = ActorMaterializer.create(system);
 
-    try {
+    try (Session session = Cluster.builder()
+            .addContactPoint("127.0.0.1").withPort(9042)
+            .build().connect()) {
       setupCassandra(session);
 
       final PreparedStatement insertTemplate = session.prepare(
@@ -74,7 +73,7 @@ public class CassandraFlowExample {
       Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
         // throttling the stream so that the Source.actorRef() does not overflow
         .throttle(1, Duration.of(50, ChronoUnit.MILLIS))
-        .map(i -> new CassandraSinkExample.UserComment(1, "some comment"))
+        .map(i -> new CassandraSinkExample.UserComment(i, "some comment"))
         .to(Sink.actorRef(actorRef, "stream completed"))
         .run(materializer);
 
@@ -84,7 +83,9 @@ public class CassandraFlowExample {
 
     } catch(InterruptedException e) {
       System.out.println("Application exited unexpectedly while sleeping.");
-      System.out.println(e);
+      e.printStackTrace();
+    } finally {
+      system.terminate();
     }
   }
 
