@@ -20,15 +20,14 @@ public class CassandraSourceExample {
     // Make sure you already brought up Cassandra, which is accessible via the host and port below.
     // The host and port would be driven from a config in a production environment
     // but hardcoding them here for simplicity.
-    final Session session = Cluster.builder()
-      .addContactPoint("127.0.0.1").withPort(9042)
-      .build().connect();
 
     // ActorSystem and Materializer are necessary as underlying infrastructure to run Akka Stream
     final ActorSystem system = ActorSystem.create();
     final Materializer materializer = ActorMaterializer.create(system);
 
-    try {
+    try (Session session = Cluster.builder()
+            .addContactPoint("127.0.0.1").withPort(9042)
+            .build().connect()) {
       setupCassandra(session);
 
       // https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/
@@ -48,10 +47,9 @@ public class CassandraSourceExample {
       Thread.sleep(5000);
 
     } catch (InterruptedException e) {
-      System.out.println(e);
+      e.printStackTrace();
     }
     finally {
-      session.close();
       system.terminate();
     }
   }
