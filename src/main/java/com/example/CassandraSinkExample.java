@@ -18,7 +18,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 
 public class CassandraSinkExample {
-  public static class UserComment {
+  static class UserComment {
     int    userId;
     String comment;
 
@@ -32,14 +32,13 @@ public class CassandraSinkExample {
     // Make sure you already brought up Cassandra, which is accessible via the host and port below.
     // The host and port would be driven from a config in a production environment
     // but hardcoding them here for simplicity.
-    final Session session = Cluster.builder()
-      .addContactPoint("127.0.0.1").withPort(9042)
-      .build().connect();
 
     final ActorSystem system = ActorSystem.create();
     final Materializer materializer = ActorMaterializer.create(system);
 
-    try {
+    try (Session session = Cluster.builder()
+            .addContactPoint("127.0.0.1").withPort(9042)
+            .build().connect()) {
       setupCassandra(session);
 
       final PreparedStatement insertTemplate = session.prepare(
@@ -82,7 +81,9 @@ public class CassandraSinkExample {
 
     } catch(InterruptedException e) {
       System.out.println("Application exited unexpectedly while sleeping.");
-      System.out.println(e);
+      e.printStackTrace();
+    } finally {
+      system.terminate();
     }
   }
 
