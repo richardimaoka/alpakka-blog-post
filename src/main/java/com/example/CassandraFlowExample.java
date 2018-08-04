@@ -3,7 +3,9 @@ package com.example;
 import akka.NotUsed;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import akka.event.Logging;
 import akka.stream.ActorMaterializer;
+import akka.stream.Attributes;
 import akka.stream.Materializer;
 import akka.stream.OverflowStrategy;
 import akka.stream.alpakka.cassandra.javadsl.CassandraFlow;
@@ -25,6 +27,10 @@ public class CassandraFlowExample {
     UserComment(int userId, String comment) {
       this.userId = userId;
       this.comment = comment;
+    }
+
+    public String toString() {
+      return "UserComment(" + userId + ", " + comment + ")";
     }
   }
 
@@ -62,10 +68,16 @@ public class CassandraFlowExample {
       // due to to() and run() as described below
       final ActorRef actorRef =
         source
-        .log("hello")
-        .via(flow)          //via() takes the left Materialized value
-        .to(Sink.ignore())  //to()  takes the left Materialized value
-        .run(materializer); //run() takes the left Materialized value
+          .log("processing").withAttributes(
+            Attributes.logLevels(
+              Logging.InfoLevel(), //on each element
+              Logging.InfoLevel(), //on completion of the stream
+              Logging.ErrorLevel() //on failure of the stream
+            )
+          )
+          .via(flow)          //via() takes the left Materialized value
+          .to(Sink.ignore())  //to()  takes the left Materialized value
+          .run(materializer); //run() takes the left Materialized value
 
       // In production systems, you can pass around the above `actorRef` to connect the CassandraSink stream to
       // whatever input you like, (e.g.) an HTTP endpoint which forwards UserComment per HTTP request.
@@ -73,7 +85,7 @@ public class CassandraFlowExample {
       Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
         // throttling the stream so that the Source.actorRef() does not overflow
         .throttle(1, Duration.of(50, ChronoUnit.MILLIS))
-        .map(i -> new CassandraSinkExample.UserComment(i, "some comment"))
+        .map(i -> new UserComment(i, "some comment"))
         .to(Sink.actorRef(actorRef, "stream completed"))
         .run(materializer);
 

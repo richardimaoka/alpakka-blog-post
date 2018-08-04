@@ -3,7 +3,9 @@ package com.example;
 import akka.Done;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import akka.event.Logging;
 import akka.stream.ActorMaterializer;
+import akka.stream.Attributes;
 import akka.stream.Materializer;
 import akka.stream.OverflowStrategy;
 import akka.stream.alpakka.cassandra.javadsl.CassandraSink;
@@ -25,6 +27,10 @@ public class CassandraSinkExample {
     UserComment(int userId, String comment) {
       this.userId = userId;
       this.comment = comment;
+    }
+
+    public String toString() {
+      return "UserComment(" + userId + ", " + comment + ")";
     }
   }
 
@@ -62,8 +68,15 @@ public class CassandraSinkExample {
       // due to to() and run() as described below
       final ActorRef actorRef =
         source
-        .to(cassandraSink) //to() takes the left materialized value, (i.e.) source's ActorRef
-        .run(materializer);
+          .log("processing").withAttributes(
+            Attributes.logLevels(
+              Logging.InfoLevel(), //on each element
+              Logging.InfoLevel(), //on completion of the stream
+              Logging.ErrorLevel() //on failure of the stream
+            )
+          )
+          .to(cassandraSink) //to() takes the left materialized value, (i.e.) source's ActorRef
+          .run(materializer);
 
       // In production systems, you can pass around the above `actorRef` to connect the CassandraSink stream to
       // whatever input you like, (e.g.) an HTTP endpoint which forwards UserComment per HTTP request.
@@ -71,11 +84,11 @@ public class CassandraSinkExample {
       Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
         // throttling the stream so that the Source.actorRef() does not overflow
         .throttle(1, Duration.of(50, ChronoUnit.MILLIS))
-        .map(i -> new UserComment(1, "some comment"))
+        .map(i -> new UserComment(i, "some comment"))
         .to(Sink.actorRef(actorRef, "stream completed"))
         .run(materializer);
 
-      // Sleep for 10 seconds, so that the stream finishes running
+      // Sleep for 5 seconds, so that the stream finishes running
       Thread.sleep(5000);
       System.out.println("finished");
 
