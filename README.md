@@ -23,9 +23,9 @@ and the increased number of connectors as in the below screenshot.
 
 ![Alpakka Growth](alpakka-growth.png)
 
-Since Alpakka provides the connectors as Akka Stream operators, it's not just easy to connect to these other systems and services,
-but you can also get benefit from Akka Stream's back-pressure support and fine-grained control over the stream at any level you want.
-Akka Stream's flexible DSL makes it easy to combine different operators to perform things like buffering, throttling, branching, pub/sub, etc.
+Since Alpakka provides the connectors as Akka Streams operators, it's not just easy to connect to these other systems and services,
+but you can also get benefit from Akka Streams's back-pressure support and fine-grained control over the stream at any level you want.
+Akka Streams's flexible DSL makes it easy to combine different operators to perform things like buffering, throttling, branching, pub/sub, etc.
 What's more, you can even create your own operators.
 
 ## About Cassandra
@@ -39,7 +39,7 @@ Although Cassandra is different from relational databases in many aspects, its q
 and Cassandra indeed has a concept of tables.
 
 If you already have existing data stored in Cassandra and want to introduce stream-based operations in your system,
-or you have Akka-based or Akka Stream-based systems and looking for a database with great scalability and fault tolerance,
+or you have Akka-based or Akka Streams-based systems and looking for a database with great scalability and fault tolerance,
 this blog post can be useful for you.
 
 ## Prerequisites for running Examples
@@ -80,7 +80,7 @@ against a very large data set.
 ![CassandraSourceExample](CassandraSourceExample.gif)
 
 As you see in the animation, `CassandraSource` lets you run a CQL query, which fetches `ResultSet` from Cassandra,
-and passes each `Row` from the `ResultSet` as an element going through Akka Stream.
+and passes each `Row` from the `ResultSet` as an element going through Akka Streams.
 Note that the CQL query is only run once. It is not something that keeps polling Cassandra given some filtering criteria,
 and that's why it is suitable for batch-like operations.
 
@@ -109,7 +109,7 @@ To go through the example code, you firstly need to add following import stateme
 // Alpakka Cassandra connector
 import akka.stream.alpakka.cassandra.javadsl.CassandraSource;
 
-// For Akka an Akka Stream
+// For Akka an Akka Streams
 import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
@@ -131,18 +131,18 @@ final Session session = Cluster.builder()
   .addContactPoint("127.0.0.1").withPort(9042)
   .build().connect();
 
-// ActorSystem and Materializer are necessary as the underlying infrastructure to run Akka Stream
+// ActorSystem and Materializer are necessary as the underlying infrastructure to run Akka Streams
 final ActorSystem system = ActorSystem.create();
 final Materializer materializer = ActorMaterializer.create(system);
 ```
 
 If you are not familiar with `ActorSystem` and `Materializer`, you can assume that
-they are like the underlying infrastructure to run Akka Stream.
+they are like the underlying infrastructure to run Akka Streams.
 Typically there is only one instance of `ActorSystem` and only one instance of `Materializer` in your application, more precisely,
 in your (OS) process.
 
 In a production environment, you should already have a data set in Cassandra, but in this example,
-we prepare a data set by ourselves before running Akka Stream with `CassandraSource`.
+we prepare a data set by ourselves before running Akka Streams with `CassandraSource`.
 So let's create a keyspace and a table in Cassandra as follows:
 
 ```
@@ -222,7 +222,7 @@ Cassandra Java driver already has a [paging feature](https://docs.datastax.com/e
 ![Cassandra Paging](cassandra-paging.png)
 
 so that you don't need to be afraid of your Cassandra client going out of memory by fetching a huge data set in one go.
-Cassandra's paging works nicely with Akka Stream, and on top of it, Akka Stream allows fully non-blocking execution
+Cassandra's paging works nicely with Akka Streams, and on top of it, Akka Streams allows fully non-blocking execution
 without Cassandra driver's imperative [async-paging interface](https://docs.datastax.com/en/developer/java-driver/3.2/manual/async/#async-paging).
 
 Finally, you can run the stream like below:
@@ -277,7 +277,7 @@ CassandraSource
 - aggregation, CQL doesn't have native support for group by, unlike SQL. So you can do this:
   FYI
    - [How to perform similar group by operations in CQL described at Chris Batey's blog](http://christopher-batey.blogspot.com/2015/05/cassandra-aggregates-min-max-avg-group.html)
-   - [Akka Stream's groupBy operator](https://doc.akka.io/docs/akka/2.5/stream/operators/Source-or-Flow/groupBy.html)
+   - [Akka Streams's groupBy operator](https://doc.akka.io/docs/akka/2.5/stream/operators/Source-or-Flow/groupBy.html)
 
 ```java
 CassandraSource
