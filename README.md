@@ -60,13 +60,31 @@ docker run -p 127.0.0.1:9042:9042 -d cassandra
 If you are not familiar with Docker, [download Cassandra](http://cassandra.apache.org/download/),
 unarchive it, set PATH to the Cassandra bin directory
 
-### Dependency
+### Set up Maven and package it
 
-To run the examples, you must add the following dependency to your project.
+The example includes [pom.xml](https://github.com/richardimaoka/alpakka-blog-post/blob/master/pom.xml), so that you can use Maven to create a runnable jar file.
+If you don't have maven set up, go to the [Maven main page](https://maven.apache.org/), download and install it.
+
+Then, `git clone` the example code repository, and invoke the `mvn package` command as follows:
 
 ```
-libraryDependencies += "com.lightbend.akka" %% "akka-stream-alpakka-cassandra" % "0.19"
+> git clone https://github.com/richardimaoka/alpakka-blog-post.git
+> cd alpakka-blog-post
+> mvn package
 ```
+
+You will see that under the `target` directory, Maven created `alpakka-blog-post-1.jar` and the `lib` directory which contains
+all jar dependencies.
+
+![](mvn-package-result.png)
+
+To run one of the examples, you can do this (replace `CassandraSourceExample` with `CassandraSinkExample` or `CassandraFlowExample` if you want to run the other examples.)
+
+```
+> java -cp "target/alpakka-blog-post-1.jar;target/lib*" com.example.CassandraSourceExample
+```
+
+If you already have Cassandra up and running, it should work here.
 
 ## CassandraSource example
 
