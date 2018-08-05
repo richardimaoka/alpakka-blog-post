@@ -23,7 +23,7 @@ and the increased number of connectors as in the below screenshot.
 
 ![Alpakka Growth](alpakka-growth.png)
 
-Since Alpakka provides the connectors as Akka Streams operators, it's not just easy to connect to these other systems and services,
+Since Alpakka provides the connectors as Akka Streams operators, it's not just easy to connect your application to these other systems and services,
 but you can also get benefit from Akka Streams's back-pressure support and fine-grained control over the stream at any level you want.
 Akka Streams's flexible DSL makes it easy to combine different operators to perform things like buffering, throttling, branching, pub/sub, etc.
 What's more, you can even create your own operators.
@@ -60,10 +60,10 @@ docker run -p 127.0.0.1:9042:9042 -d cassandra
 If you are not familiar with Docker, [download Cassandra](http://cassandra.apache.org/download/),
 unarchive it, set PATH to the Cassandra bin directory
 
-### Set up Maven and package it
+### Set up Maven and package runnable jar
 
-The example includes [pom.xml](https://github.com/richardimaoka/alpakka-blog-post/blob/master/pom.xml), so that you can use Maven to create a runnable jar file.
-If you don't have maven set up, go to the [Maven main page](https://maven.apache.org/), download and install it.
+The example [source code repository](https://github.com/richardimaoka/alpakka-blog-post) includes [pom.xml](https://github.com/richardimaoka/alpakka-blog-post/blob/master/pom.xml), so that you can use Maven to create a runnable jar file.
+If you don't have Maven set up, go to the [Maven main page](https://maven.apache.org/), download and install it.
 
 Then, `git clone` the example code repository, and invoke the `mvn package` command as follows:
 
@@ -95,9 +95,9 @@ against a very large data set.
 
 ![CassandraSourceExample](CassandraSourceExample.gif)
 
-As you see in the animation, `CassandraSource` lets you run a CQL query, which fetches `ResultSet` from Cassandra,
+As you see in the animation, `CassandraSource` lets you run a CQL query, which fetches a `ResultSet` from Cassandra,
 and passes each `Row` from the `ResultSet` as an element going through Akka Streams.
-Note that the CQL query is only run once. It is not something that keeps polling Cassandra given some filtering criteria,
+Note that the CQL query is **only run once**. It is not something that keeps polling Cassandra given some filtering criteria,
 and that's why it is suitable for batch-like operations.
 
 In a nutshell, you can create and run a stream with Alpakka Cassandra connector like below:
@@ -113,7 +113,7 @@ final RunnableGraph<NotUsed> runnableGraph =
 runnableGraph.run(materializer);
 ```
 
-but we'll see how it works in more detail as follows.
+and we'll see how it works in more detail as follows.
 
 ### Details of the example
 
@@ -125,7 +125,7 @@ To go through the example code, you firstly need to add following import stateme
 // Alpakka Cassandra connector
 import akka.stream.alpakka.cassandra.javadsl.CassandraSource;
 
-// For Akka an Akka Streams
+// For Akka and Akka Streams
 import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
@@ -268,7 +268,6 @@ Row[536, 35, John]
 
 ### More realistic `CassandraSource` examples
 
-This is good stuff. Keep it.
 This section is in progress. Should it be omitted as the article is getting too long??
 
 Sometimes you may want to perform filtering on elements from `CassandraSource`, based on certain rules but the filtering
@@ -328,7 +327,7 @@ Assume you have an `externalSink` which calls an non-streaming based external se
 and the external service is slow in processing elements, it could be overwhelmed when you send elements too fast.
 
 To avoid that, you can put a `throttling` operator in the middle, to control the throughput.
-This is a useful technique if you know the safe throughput level in advance:
+This is a useful technique if you know the safe throttling level in advance:
 
 ```java
 CassandraSource
@@ -346,9 +345,9 @@ CassandraSource
 
 The full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example/CassandraSinkExample.java).
 
-The next example we see is CassandraSink, which lets you insert `Row`s into Cassandra at the end of the stream.
+The next example we see is CassandraSink, which lets you insert `Row`s into Cassandra as a `Sink` of the stream.
 
-This is useful for more like a real-time system that keeps running where your data goes from a data source and
+In contrast to `CassandraSource`, this is useful for more like a real-time system that keeps running where your data goes from another data source and
 eventually written into Cassandra.
 
 ![CassandraSinkExample](CassandraSinkExample.gif)
@@ -388,7 +387,7 @@ session.execute(createTable);
 
 This table is associated with previous `users` table, where `user_comments.user_id` is reference to `users.id`.
 However, there is no concept of foreign keys in Cassandra, so your application code needs to make sure the association
-is kept tight (i.e. every `user_id` value in `user_comments` must also exist in `users.id`).
+is kept tight (i.e. every `user_id` value in the `user_comments` table must also exist in the `users` table's `id` column).
 Anyway, that is beyond the scope of this article, so let's come back to the `CassandraSink` stuff.
 
 As you have the table in Cassandra, you can now define an associated model class in Java.

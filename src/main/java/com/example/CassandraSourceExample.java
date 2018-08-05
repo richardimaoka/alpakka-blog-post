@@ -4,7 +4,7 @@ package com.example;
 // Alpakka Cassandra connector
 import akka.stream.alpakka.cassandra.javadsl.CassandraSource;
 
-// For Akka an Akka Stream
+// For Akka and Akka Streams
 import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
@@ -21,7 +21,7 @@ public class CassandraSourceExample {
     // The host and port would be driven from a config in a production environment
     // but hardcoding them here for simplicity.
 
-    // ActorSystem and Materializer are necessary as underlying infrastructure to run Akka Stream
+    // ActorSystem and Materializer are necessary as underlying infrastructure to run Akka Streams
     final ActorSystem system = ActorSystem.create();
     final Materializer materializer = ActorMaterializer.create(system);
 

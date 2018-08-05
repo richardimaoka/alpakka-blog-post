@@ -1,5 +1,9 @@
 package com.example;
 
+// Alpakka Cassandra connector
+import akka.stream.alpakka.cassandra.javadsl.CassandraFlow;
+
+// For Akka and Akka Streams
 import akka.NotUsed;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
@@ -8,10 +12,11 @@ import akka.stream.ActorMaterializer;
 import akka.stream.Attributes;
 import akka.stream.Materializer;
 import akka.stream.OverflowStrategy;
-import akka.stream.alpakka.cassandra.javadsl.CassandraFlow;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+
+// For Java Cassandra driver
 import com.datastax.driver.core.*;
 
 import java.time.Duration;
