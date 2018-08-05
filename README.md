@@ -271,7 +271,12 @@ Row[536, 35, John]
 This is good stuff. Keep it.
 This section is in progress. Should it be omitted as the article is getting too long??
 
-- filtering, when you cannot express filtering criteria as CQL (e.g.) it changes by user
+Sometimes you may want to perform filtering on elements from `CassandraSource`, based on certain rules but the filtering
+rules cannot simply be expressed as a CQL `where` clause. For example, the filtering rule depends on a return from an external
+service call.
+
+You can achieve this by the `mapAsync` operator, which is for external and async service call,
+and the `filter` operator to filter elements.
 
 ```java
 CassandraSource
@@ -290,10 +295,14 @@ CassandraSource
   .to(Sink.foreach(row -> System.out.println(row)));
 ```
 
-- aggregation, CQL doesn't have native support for group by, unlike SQL. So you can do this:
-  FYI
-   - [How to perform similar group by operations in CQL described at Chris Batey's blog](http://christopher-batey.blogspot.com/2015/05/cassandra-aggregates-min-max-avg-group.html)
-   - [Akka Streams's groupBy operator](https://doc.akka.io/docs/akka/2.5/stream/operators/Source-or-Flow/groupBy.html)
+Another example which could be useful is performing aggregation operations.
+Cassandra's CQL doesn't have native support for aggregation operations unlike SQL, which has `GROUP BY` and other mechanisms to support aggregation.
+
+- [How to perform similar group by operations - CQL described at Chris Batey's blog](http://christopher-batey.blogspot.com/2015/05/cassandra-aggregates-min-max-avg-group.html)
+
+Using [Akka Streams's groupBy operator](https://doc.akka.io/docs/akka/2.5/stream/operators/Source-or-Flow/groupBy.html),
+we can perform aggregation like below:
+
 
 ```java
 CassandraSource
@@ -313,7 +322,13 @@ CassandraSource
    )));
 ```
 
-- throttling, if flow/sink connected to `CassandraSource` cannot perform appropriate back pressuring
+The last example about `CassandraSource` is for throttling.
+
+Assume you have an `externalSink` which calls an non-streaming based external service on each element,
+and the external service is slow in processing elements, it could be overwhelmed when you send elements too fast.
+
+To avoid that, you can put a `throttling` operator in the middle, to control the throughput.
+This is a useful technique if you know the safe throughput level in advance:
 
 ```java
 CassandraSource
@@ -482,8 +497,7 @@ which is a good thing and contributes to the stability of your entire stream.
 
 ## More realistic examples
 
-- persist elements to multiple external sinks, by `alsoTo`
-  - be careful on how each sink handles failure, failure on a single element might make the entire stream stuck with back-pressure
+It is often the case that you want to persist or send elements to multiple different destinations.
 
 ```java
 source
@@ -495,6 +509,12 @@ source
 
 ![CassandraSink alsoTo](CassandraSink-alsoTo.jpg)
 
+Be careful on using `alsoTo` though, because:
+
+- failure on a single destination Sink can make the entire stream fail,
+- and if a single destination gets stuck and does not pull demand, all the other destinations get stuck too with back-pressure
+
+So, you would probably need to control the failure for each destination.
 
 ## CasandraFlow example
 
@@ -527,11 +547,9 @@ Also, what we discussed in the note about the `CassandraSink` parallelism applie
 
 ### More realistic example
 
-- Replacement to DB polling
+One good use case of `CassandraFlow` is replacement for DB polling.
 
-One good use case of `CassandraFlow` is replacement of DB polling. It is a common requirement that
-you want to perform a certain operation whenever there is a new row inserted into a database.
-
+It is a common requirement that you want to perform a certain operation whenever there is a new row inserted into a database.
 A traditional way to achieve this is to periodical DB polling - query the database (e.g.) every X minutes,
 and if you find new rows inserted, perform operations on them. To see if there are new rows inserted,
 the client which polls the database remembers the last element processed, and only fetches rows which
@@ -547,3 +565,12 @@ source
   .to(sink)
   .run(materializer);
 ```
+
+## Summary
+
+Hopefully the examples shown in this article are interesting to you. There are a lot more capabilities in Akka Streams,
+and also Alpakka is not limited to Cassandra connectors. Please visit the Akka Streams documentation and the Alpakka
+project page if you want to explore more.
+
+- [Akka Streams official documentation](https://doc.akka.io/docs/akka/2.5.5/scala/stream/index.html)
+- [Alpakka project page](https://developer.lightbend.com/docs/alpakka/current/)
