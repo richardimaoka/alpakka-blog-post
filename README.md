@@ -44,8 +44,6 @@ this blog post can be useful for you.
 
 ## Prerequisites for running Examples
 
-The full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example).
-
 ### Bring up Cassandra
 
 To follow the examples in this article, you should firstly bring up Cassandra.
@@ -101,7 +99,7 @@ but we'll see how it works in more detail as follows.
 
 ### Details of the example
 
-Again the full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example).
+The full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example/CassandraSourceExample.java).
 
 To go through the example code, you firstly need to add following import statements,
 
@@ -313,7 +311,7 @@ CassandraSource
 
 ## CassandraSink example
 
-The full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example).
+The full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example/CassandraSinkExample.java).
 
 The next example we see is CassandraSink, which lets you insert `Row`s into Cassandra at the end of the stream.
 
@@ -482,7 +480,7 @@ source
 
 ## CasandraFlow example
 
-The full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example).
+The full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example/CassandraFlowExample.java).
 
 The last example we see is `CassandraFlow`. `CassandraFlow` allows you persist each element coming through
 the `CassandraFlow` operator similar to `CassandraSink`, but the difference is that it also emits the element
