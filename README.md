@@ -1,7 +1,7 @@
 ## Background
 
 Enterprise Integration Patterns, EIP, provide reusable architecture patterns to construct complicated systems from simple components.
-It has been a great success in the enterprise world, and although ETP itself is language-agnostic,
+It has been a great success in the enterprise world, and although EIP itself is language-agnostic,
 there have been many systems written in Java following or extending from EIP.
 
 However, in recent years there has been a trend to rewrite systems in more stream-based fashion,
