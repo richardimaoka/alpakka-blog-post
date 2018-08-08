@@ -268,8 +268,6 @@ Row[536, 35, John]
 
 ### More realistic `CassandraSource` examples
 
-This section is in progress. Should it be omitted as the article is getting too long??
-
 Sometimes you may want to perform filtering on elements from `CassandraSource`, based on certain rules but the filtering
 rules cannot simply be expressed as a CQL `where` clause. For example, the filtering rule depends on a return from an external
 service call.
