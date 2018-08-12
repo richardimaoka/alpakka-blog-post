@@ -186,16 +186,16 @@ strategy when you create a keyspace. After creating the keyspace, you can create
 Now you can insert data into the table:
 
 ```java
-for(int i = 1; i <= 1000; i++){
+IntStream.range(1, 1000).forEach(i -> {
   // For simplicity we use the same name and age in this example
   String name = "John";
   int age = 35;
 
-  // Prepared statement is typical for parameterized queries in CQL (Cassandra Query Language).
+  // Prepared statement is typical in parameterized queries in CQL (Cassandra Query Language).
   // In production systems, it can be used to guard the statement from injection attacks, similar to SQL prepared statement.
   BoundStatement bound = prepared.bind(i, name, age);
   session.execute(bound);
-}
+});
 ```
 
 Here, if you execute the following CQL query,
@@ -266,7 +266,7 @@ Row[536, 35, John]
 ...
 ```
 
-### More realistic `CassandraSource` examples
+### More `CassandraSource` examples
 
 Sometimes you may want to perform filtering on elements from `CassandraSource`, based on certain rules but the filtering
 rules cannot simply be expressed as a CQL `where` clause. For example, the filtering rule depends on a return from an external
@@ -492,7 +492,7 @@ defines the appropriate Cassandra persistence key.
 So, chances are that you can insert into Cassandra parallelly to achieve faster `CassandraSink` than your data source,
 which is a good thing and contributes to the stability of your entire stream.
 
-## More realistic examples
+## More examples
 
 It is often the case that you want to persist or send elements to multiple different destinations.
 
@@ -512,6 +512,63 @@ Be careful on using `alsoTo` though, because:
 - and if a single destination gets stuck and does not pull demand, all the other destinations get stuck too with back-pressure
 
 So, you would probably need to control the failure for each destination.
+
+Another example can be using `CassandraSink` for inserting test data for the earlier `CassandraSource` example.
+Instead of executing the CQL `insert into` operation directly within the `IntStream.range(1, 1000).forEach(i -> {...})` loop,
+
+```java
+import akka.Done;
+import akka.event.Logging;
+import akka.stream.Attributes;
+import akka.stream.alpakka.cassandra.javadsl.CassandraSink;
+import akka.stream.javadsl.StreamConverters;
+import java.util.concurrent.CompletionStage;
+import java.util.function.BiFunction;
+import java.util.stream.IntStream;
+
+// Setup step 1: Firstly make sure the keyspace exists
+// Cassandra keyspace is something that holds tables inside, and defines replication strategies
+final Statement createKeyspace = new SimpleStatement(
+  "CREATE KEYSPACE IF NOT EXISTS akka_stream_java_test WITH REPLICATION = { 'class' :  'SimpleStrategy', 'replication_factor': 1 };"
+);
+session.execute(createKeyspace);
+
+// Step 2: Make sure the target table exists, and empty before the step 3
+// Dropping and creating the table is the easiest way to make sure the table is empty
+final Statement dropTable = new SimpleStatement(
+  "DROP TABLE IF EXISTS akka_stream_java_test.users;"
+);
+final Statement createTable = new SimpleStatement(
+  "CREATE TABLE akka_stream_java_test.users (" +
+    "id int, " + // Typically in Cassandra, UUID type is used for id, but we use int for simplicity
+    "name text, " +
+    "age int, " +
+    "PRIMARY KEY (id)" +
+    ");"
+);
+session.execute(dropTable);
+session.execute(createTable);
+
+final PreparedStatement insertTemplate = session.prepare(
+  "insert into akka_stream_java_test.users( id, name, age ) values ( ?, ?, ? )"
+);
+
+// A function to create a BoundStatement, from:
+//  - UserComment, input data
+//  - PreparedStatement, template to generate BoundStatement by supplying UserComment
+BiFunction<UserData, PreparedStatement, BoundStatement> statementBinder =
+  (userData, preparedStatement) -> preparedStatement.bind(userData.id, userData.name, userData.age);
+
+final Sink<UserData, CompletionStage<Done>> cassandraSink =
+  CassandraSink.create(2, insertTemplate, statementBinder, session);
+
+// Step 3: Insert the data, 1000 rows into the table
+StreamConverters
+  .fromJavaStream(() -> IntStream.range(1, 1000))
+  .map(i -> new UserData(i, "John", 35))
+  .to(cassandraSink)
+  .run(materializer);
+```
 
 ## CasandraFlow example
 
@@ -542,7 +599,7 @@ source.via(cassandraFlow).to(sink).run(materializer);
 The above example is similar to `CassandraSink`, so we are not going too much detail about the example again.
 Also, what we discussed in the note about the `CassandraSink` parallelism applies to `CassandraFlow` too.
 
-### More realistic example
+### More examples
 
 One good use case of `CassandraFlow` is replacement for DB polling.
 

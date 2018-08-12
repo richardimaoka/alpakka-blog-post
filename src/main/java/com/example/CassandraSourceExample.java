@@ -15,6 +15,16 @@ import akka.stream.javadsl.Sink;
 // For Java Cassandra driver
 import com.datastax.driver.core.*;
 
+// For setupCassandraByCassandraSink()
+import akka.Done;
+import akka.event.Logging;
+import akka.stream.Attributes;
+import akka.stream.alpakka.cassandra.javadsl.CassandraSink;
+import akka.stream.javadsl.StreamConverters;
+import java.util.concurrent.CompletionStage;
+import java.util.function.BiFunction;
+import java.util.stream.IntStream;
+
 public class CassandraSourceExample {
   public static void main(String args[]) {
     // Make sure you already brought up Cassandra, which is accessible via the host and port below.
@@ -28,7 +38,10 @@ public class CassandraSourceExample {
     try (Session session = Cluster.builder()
             .addContactPoint("127.0.0.1").withPort(9042)
             .build().connect()) {
+
       setupCassandra(session);
+      // you can also call this instead, which have the same result as setupCassandra()
+      //setupCassandraByCassandraSink(session, materializer);
 
       // https://docs.datastax.com/en/developer/java-driver/3.2/manual/paging/
       final Statement stmt =
@@ -38,7 +51,6 @@ public class CassandraSourceExample {
       // and print them one by one
       final RunnableGraph<NotUsed> runnableGraph =
         CassandraSource.create(stmt, session)
-          .log("logging") //prints out row (e.g.) Row[498, 35, John]
           .to(Sink.foreach(row -> System.out.println(row)));
 
       runnableGraph.run(materializer);
@@ -83,7 +95,7 @@ public class CassandraSourceExample {
       "insert into akka_stream_java_test.users( id, name, age ) values ( ?, ?, ? )"
     );
 
-    for(int i = 1; i <= 1000; i++){
+    IntStream.range(1, 1000).forEach(i -> {
       // For simplicity we use the same name and age in this example
       String name = "John";
       int age = 35;
@@ -92,6 +104,71 @@ public class CassandraSourceExample {
       // In production systems, it can be used to guard the statement from injection attacks, similar to SQL prepared statement.
       BoundStatement bound = prepared.bind(i, name, age);
       session.execute(bound);
+    });
+  }
+
+  /**
+   * It does the same thing as setupCassandra(), but using CassandraSink
+   */
+  private static void setupCassandraByCassandraSink(Session session, Materializer materializer){
+    // Setup step 1: Firstly make sure the keyspace exists
+    // Cassandra keyspace is something that holds tables inside, and defines replication strategies
+    final Statement createKeyspace = new SimpleStatement(
+      "CREATE KEYSPACE IF NOT EXISTS akka_stream_java_test WITH REPLICATION = { 'class' :  'SimpleStrategy', 'replication_factor': 1 };"
+    );
+    session.execute(createKeyspace);
+
+    // Step 2: Make sure the target table exists, and empty before the step 3
+    // Dropping and creating the table is the easiest way to make sure the table is empty
+    final Statement dropTable = new SimpleStatement(
+      "DROP TABLE IF EXISTS akka_stream_java_test.users;"
+    );
+    final Statement createTable = new SimpleStatement(
+      "CREATE TABLE akka_stream_java_test.users (" +
+        "id int, " + // Typically in Cassandra, UUID type is used for id, but we use int for simplicity
+        "name text, " +
+        "age int, " +
+        "PRIMARY KEY (id)" +
+        ");"
+    );
+    session.execute(dropTable);
+    session.execute(createTable);
+
+    final PreparedStatement insertTemplate = session.prepare(
+      "insert into akka_stream_java_test.users( id, name, age ) values ( ?, ?, ? )"
+    );
+
+    // A function to create a BoundStatement, from:
+    //  - UserComment, input data
+    //  - PreparedStatement, template to generate BoundStatement by supplying UserComment
+    BiFunction<UserData, PreparedStatement, BoundStatement> statementBinder =
+      (userData, preparedStatement) -> preparedStatement.bind(userData.id, userData.name, userData.age);
+
+    final Sink<UserData, CompletionStage<Done>> cassandraSink =
+      CassandraSink.create(2, insertTemplate, statementBinder, session);
+
+    // Step 3: Insert the data, 1000 rows into the table
+    StreamConverters
+      .fromJavaStream(() -> IntStream.range(1, 1000))
+      .map(i -> new UserData(i, "John", 35))
+      .to(cassandraSink)
+      .run(materializer);
+  }
+
+  public static class UserData {
+    int    id;
+    String name;
+    int    age;
+
+    UserData(int id, String name, int age) {
+      this.id = id;
+      this.name = name;
+      this.age = age;
+    }
+
+    public String toString() {
+      return "UserData(" + id  + ", " + name + ", " + age + ")";
     }
   }
+
 }
