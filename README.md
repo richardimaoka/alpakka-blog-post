@@ -311,13 +311,60 @@ CassandraSource
   ))
   .groupBy(200, user -> user.age) //group by user's age
   .fold(
-    akka.japi.Pair.create(0, 0),
-    (accumulated, user) -> akka.japi.Pair.create(user.age, accumulated.second() + 1)
+    akka.japi.Pair.create(0 /*age*/, 0 /*count*/), //the initial value
+    (accumulated, user) -> akka.japi.Pair.create(user.age, accumulated.second() + 1) //accumulation operation
   )
   .to(Sink.foreach(accumulated ->
      System.out.println("age: " + accumulated.first() + " count: " + accumulated.second()
    )));
 ```
+
+In the example, the `groupBy(200, user -> user.age)` operator creates substreams where each substream only
+flows through `user` elements with the same `user.age`. For example, if the we had the following elements from the upstream:
+
+```java
+new User(1, "John",  35),
+new User(2, "Chris", 21),
+new User(3, "Marie", 13),
+new User(4, "Carol", 35),
+new User(5, "Ben"  , 35),
+new User(6, "Julia", 13),
+```
+
+There are three substreams created and corresponding elements will be as below:
+
+```java
+// These go through the substream with age = 35
+new User(1, "John",  35),
+new User(4, "Carol", 35),
+new User(5, "Ben"  , 35),
+
+// This goes through the substream with age = 21
+new User(2, "Chris", 21),
+
+// These go through the substream with age = 13
+new User(3, "Marie", 13),
+new User(6, "Julia", 13),
+```
+
+The next `fold` operator is for aggregating calculation, but we will come back to this after looking at the `Sink`.
+In this stream, the `Sink` prints out the age for the substream (`accumlated.first()`) and the number of elements went through the substream (`accumulated.second()`):
+
+```java
+System.out.println("age: " + accumulated.first() + " count: " + accumulated.second()
+```
+
+So, the earlier `fold` operator needs count up the number of elements in each substream, which is stored in the `second()` parameter of `akka.japi.Pair`.
+Note that the accumulation operation defined in the `fold` operator is applied to each substream in the same manner.
+That means the aggregation is done individually at the substream level, not for the stream as a whole.
+
+```java
+.fold(
+  akka.japi.Pair.create(0 /*age*/, 0 /*count*/), //the initial value
+  (accumulated, user) -> akka.japi.Pair.create(user.age, accumulated.second() + 1) //accumulation operation
+)
+```
+
 
 The last example about `CassandraSource` is for throttling.
 
