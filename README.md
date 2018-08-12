@@ -339,6 +339,11 @@ CassandraSource
   .to(externalSink); //Sink representing external system, like RDB, ElasticSearch, HTTP API, etc
 ```
 
+The above `throttle(10, java.time.Duration.ofSeconds(1))` means that the throughput is capped at
+10 elements within 1 second. There are other overloaded `throttle` methods available, so that you can specify
+the throughput limit in various ways, which are explained in the [javadoc](https://doc.akka.io/japi/akka/current/akka/stream/javadsl/Flow.html) of `Flow`
+and [that of](https://doc.akka.io/japi/akka/current/akka/stream/javadsl/Source.html) `Source`.
+
 ## CassandraSink example
 
 The full code example can be found [here](https://github.com/richardimaoka/alpakka-blog-post/tree/master/src/main/java/com/example/CassandraSinkExample.java).
